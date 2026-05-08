@@ -7,3 +7,5 @@ lab_envanter.db
 Yedekler/
 app.log
 *.db
+build/
+dist/
