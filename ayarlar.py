@@ -1,4 +1,4 @@
-# dosya: ayarlar.py
+# ayarlar.py
 # ---------------------------------------------------------
 metinler = {
     "TR": {
@@ -48,7 +48,13 @@ metinler = {
         "kayitli_yok": "Kayıtlı kullanıcı yok.",
         "isim_girin": "İsim girin...",
         "orn_isim": "Örn: Sodyum Klorür",
-        "orn_lok": "Örn: A Dolabı, Raf 2"
+        "orn_lok": "Örn: A Dolabı, Raf 2",
+        "birimler": ["Koli", "Paket", "Kutu", "Şişe", "Adet", "ml", "L", "g", "mg", ""],
+        "log_eklendi": "Sisteme Eklendi",
+        "log_silindi": "Kalıcı Olarak Silindi",
+        "log_guncellendi": "Bilgiler Güncellendi",
+        "log_miktar": "Miktar",
+        "log_stok": "Son Stok"
     },
     "EN": {
         "title": "Laboratory Inventory System",
@@ -97,7 +103,13 @@ metinler = {
         "kayitli_yok": "No registered users.",
         "isim_girin": "Enter name...",
         "orn_isim": "Ex: Sodium Chloride",
-        "orn_lok": "Ex: Cabinet A, Shelf 2"
+        "orn_lok": "Ex: Cabinet A, Shelf 2",
+        "birimler": ["Case", "Package", "Box", "Bottle", "Piece", "ml", "L", "g", "mg", ""],
+        "log_eklendi": "Added to System",
+        "log_silindi": "Permanently Deleted",
+        "log_guncellendi": "Information Updated",
+        "log_miktar": "Quantity",
+        "log_stok": "Last Stock"
     }
 }
 font_tipi = "Segoe UI"
