@@ -3,16 +3,17 @@ from typing import Optional
 from enum import Enum
 
 class IslemTipi(Enum):
-    EKLEME = "Sisteme Eklendi"
-    SILME = "Kalıcı Olarak Silindi"
-    GUNCELLEME = "Stok Düzenlendi"
+    EKLEME = "Ekleme"
+    SILME = "Silme"
+    GUNCELLEME = "Güncelleme"
 
 @dataclass
 class Malzeme:
-    isim: str
-    ambalaj_tipi: str
-    miktar: float
-    birim: str
+    id: Optional[int] = None
+    isim: str = ""
+    ambalaj_tipi: str = ""
+    miktar: float = 0.0
+    birim: str = ""
     ikinci_miktar: float = 0.0
     ikinci_birim: str = ""
     ucuncu_miktar: float = 0.0
@@ -20,33 +21,39 @@ class Malzeme:
     donusum_orani: float = 0.0
     lokasyon: str = ""
     notlar: str = ""
-    id: Optional[int] = None
 
-# YENİ EKLENEN PROFESYONEL UNDO SINIFI
 @dataclass
 class UndoIslemi:
-    tip: str  # "ekleme", "silme", "guncelleme"
+    tip: str 
     malzeme_id: int
     malzeme_isim: str
     log_id: int
     eski_malzeme: Optional[Malzeme] = None
     yeni_malzeme: Optional[Malzeme] = None
 
-def stok_metni_olustur(m1: float, b1: str, m2: float = 0.0, b2: str = "", m3: float = 0.0, b3: str = "") -> str:
-    m1, m2, m3 = m1 or 0.0, m2 or 0.0, m3 or 0.0
-    m1_str = str(int(m1)) if m1 % 1 == 0 else str(m1)
-    m2_str = str(int(m2)) if m2 % 1 == 0 else str(m2)
-    m3_str = str(int(m3)) if m3 % 1 == 0 else str(m3)
-    metin = f"{m1_str} {b1}"
-    if m2 > 0: metin += f" + {m2_str} {b2}"
-    if m3 > 0: metin += f" + {m3_str} {b3}"
-    return metin
-
-def miktar_dogrula(deger: str) -> float:
-    if not deger: return 0.0
+def miktar_dogrula(deger):
     try:
-        val = float(deger)
-        if val < 0: raise ValueError("Miktar eksi bir değer olamaz.")
-        return val
+        return float(deger) if deger and str(deger).strip() else 0.0
     except ValueError:
-        raise ValueError("Miktar alanına geçerli bir sayı girmelisiniz.")
+        return 0.0
+
+# DİL DESTEKLİ STOK METNİ
+def stok_metni_olustur(m1, b1, m2, b2, m3, b3, aktif_dil="TR"):
+    # Birim sözlüğü
+    birim_map = {
+        "TR": ["Koli", "Paket", "Kutu", "Şişe", "Adet"],
+        "EN": ["Case", "Package", "Box", "Bottle", "Piece"]
+    }
+    
+    # Eğer dil EN ise ve gelen birim TR listesindeyse çevir
+    def cevir(birim):
+        if aktif_dil == "EN":
+            for i, tr_b in enumerate(birim_map["TR"]):
+                if birim == tr_b: return birim_map["EN"][i]
+        return birim
+
+    parcalar = []
+    if m1 > 0: parcalar.append(f"{m1} {cevir(b1)}")
+    if m2 > 0: parcalar.append(f"{m2} {cevir(b2)}")
+    if m3 > 0: parcalar.append(f"{m3} {cevir(b3)}")
+    return " + ".join(parcalar) if parcalar else "0"
