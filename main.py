@@ -5,7 +5,7 @@ from datetime import datetime
 from veritabani import DatabaseManager
 from modeller import IslemTipi, stok_metni_olustur
 from ayarlar import metinler, renkler
-from ui_bilesenleri import FontManager, OzelOnayKutusu
+from ui_bilesenleri import FontManager, OzelOnayKutusu, OzelBilgiKutusu
 
 from sayfa_envanter import EnvanterSayfasi
 from sayfa_ekle import EkleSayfasi
