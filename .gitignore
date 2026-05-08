@@ -1,0 +1,9 @@
+# Python önbellek dosyaları
+__pycache__/
+*.pyc
+
+# Veritabanı, Yedekler ve Loglar (Gizli Kalmalı!)
+lab_envanter.db
+Yedekler/
+app.log
+*.db
