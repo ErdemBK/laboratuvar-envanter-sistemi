@@ -26,20 +26,40 @@ Sisteminizdeki laboratuvar verilerinin kaybolmasını veya yanlışlıkla silinm
 * **Veritabanı:** SQLite3
 * **Mimari:** Modüler Nesne Yönelimli Programlama (OOP)
 
-## 📦 Kurulum ve Çalıştırma
+## 🚀 Kurulum ve Çalıştırma
 
-1.  Bu depoyu bilgisayarınıza indirin:
-    ```bash
-    git clone [https://github.com/ErdemBK/laboratuvar-envanter-sistemi.git](https://github.com/ErdemBK/laboratuvar-envanter-sistemi.git)
-    ```
-2.  Gerekli kütüphaneyi kurun:
-    ```bash
-    pip install -r requirements.txt
-    ```
-3.  Uygulamayı başlatın:
-    ```bash
-    python main.py
-    ```
+Uygulamayı kaynak kodundan (Windows, Linux, macOS) çalıştırmak isterseniz aşağıdaki adımları izleyebilirsiniz:
+
+1. Depoyu bilgisayarınıza indirin ve proje klasörüne girin:
+
+```bash
+git clone https://github.com/ErdemBK/laboratuvar-envanter-sistemi.git
+cd laboratuvar-envanter-sistemi
+```
+
+2. Gerekli kütüphaneleri kurun:
+
+```bash
+pip install -r requirements.txt
+```
+
+*(Linux/macOS kullanıcıları alternatif olarak şunu kullanabilir: `python3 -m pip install -r requirements.txt`)*
+
+3. Uygulamayı başlatın:
+
+```bash
+python main.py
+```
+
+*(Linux/macOS kullanıcıları alternatif olarak şunu kullanabilir: `python3 main.py`)*
+
+> 💡 **İpucu:** Her seferinde terminal kullanmak istemiyorsanız, önce `pip install pyinstaller` komutunu çalıştırın. Ardından aşağıdaki komutla uygulamanın bağımsız çalıştırılabilir sürümünü oluşturabilirsiniz:
+>
+> ```bash
+> pyinstaller --noconfirm --onefile --windowed main.py
+> ```
+>
+> Oluşturulan dosya **dist** klasörü içinde yer alır ve işletim sistemine göre çift tıklayarak çalıştırılabilir.
 
 ## 📐 Proje Yapısı
 
