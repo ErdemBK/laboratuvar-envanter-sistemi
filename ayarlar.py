@@ -1,5 +1,8 @@
 # ayarlar.py
 # ---------------------------------------------------------
+# Laboratuvar Envanter Sistemi - Yapılandırma ve Dil Dosyası
+# ---------------------------------------------------------
+
 metinler = {
     "TR": {
         "title": "Laboratuvar Envanter Sistemi",
@@ -10,6 +13,7 @@ metinler = {
         "yedekleme": "💾  Yedekleme",
         "tema_degistir": "🌓  Tema Değiştir",
         "dil_sec": "🌐  TR / EN",
+        "kullanici_degistir": "👤 Kullanıcı Değiştir",
         "malzeme_adi": "Malzeme Adı:",
         "lokasyon": "Lokasyon (Raf/Oda):",
         "notlar": "Özel Notlar:",
@@ -65,6 +69,7 @@ metinler = {
         "yedekleme": "💾  Backup",
         "tema_degistir": "🌓  Toggle Theme",
         "dil_sec": "🌐  EN / TR",
+        "kullanici_degistir": "👤 Switch User",
         "malzeme_adi": "Material Name:",
         "lokasyon": "Location (Shelf/Room):",
         "notlar": "Special Notes:",
@@ -112,9 +117,18 @@ metinler = {
         "log_stok": "Last Stock"
     }
 }
+
 font_tipi = "Segoe UI"
+
 renkler = {
-    "arkaplan": ("#F0F4F8", "#13151A"), "menu": ("#FFFFFF", "#1E2028"), "kart": ("#FFFFFF", "#272A35"),          
-    "yazi_ana": ("#111827", "#F9FAFB"), "yazi_ikincil": ("#6B7280", "#9CA3AF"), "buton_mavi": ("#3B82F6", "#3B82F6"),    
-    "buton_mavi_hover": ("#2563EB", "#2563EB"), "basari": ("#10B981", "#10B981"), "tehlike": ("#EF4444", "#EF4444"), "uyari": ("#F59E0B", "#F59E0B")          
+    "arkaplan": ("#F0F4F8", "#13151A"),          
+    "menu": ("#FFFFFF", "#1E2028"),               
+    "kart": ("#FFFFFF", "#272A35"),               
+    "yazi_ana": ("#111827", "#F9FAFB"),           
+    "yazi_ikincil": ("#6B7280", "#9CA3AF"),       
+    "buton_mavi": ("#3B82F6", "#3B82F6"),         
+    "buton_mavi_hover": ("#2563EB", "#2563EB"),   
+    "basari": ("#10B981", "#10B981"),             
+    "tehlike": ("#EF4444", "#EF4444"),            
+    "uyari": ("#F59E0B", "#F59E0B")               
 }

@@ -1,5 +1,3 @@
-# main.py
-# ---------------------------------------------------------
 import customtkinter as ctk
 import os, logging
 from datetime import datetime
@@ -37,6 +35,9 @@ class EnvanterUygulamasi(ctk.CTk):
             self.destroy()
 
     def login_ekrani_goster(self):
+        # Eğer ana pencere açıksa gizle
+        self.withdraw()
+        
         self.login = ctk.CTkToplevel(self)
         self.login.title(metinler[self.aktif_dil]["title"])
         self.login.geometry("400x450")
@@ -81,6 +82,10 @@ class EnvanterUygulamasi(ctk.CTk):
         self.ana_arayuzu_kur() 
 
     def ana_arayuzu_kur(self):
+        # Her kurulumda eski arayüzü temizle (Kullanıcı değiştirme için önemli)
+        for widget in self.winfo_children(): 
+            widget.destroy()
+
         self.title(f"{metinler[self.aktif_dil]['title']} - {self.kullanici_adi}")
         self.geometry("1200x700")
         self.configure(fg_color=renkler["arkaplan"])
@@ -88,7 +93,7 @@ class EnvanterUygulamasi(ctk.CTk):
         
         self.sol_menu = ctk.CTkFrame(self, width=220, corner_radius=0, fg_color=renkler["menu"])
         self.sol_menu.grid(row=0, column=0, sticky="nsew")
-        self.sol_menu.grid_rowconfigure(6, weight=1) 
+        self.sol_menu.grid_rowconfigure(5, weight=1) # Esnek boşluk
 
         ctk.CTkLabel(self.sol_menu, text=metinler[self.aktif_dil]["logo"], font=FontManager.get_font(24, "bold"), text_color=renkler["buton_mavi"]).grid(row=0, column=0, padx=20, pady=(30, 40))
         
@@ -111,20 +116,29 @@ class EnvanterUygulamasi(ctk.CTk):
         menu_btn(3, "gecmis", "GecmisSayfasi")
         menu_btn(4, "yedekleme", "YedeklemeSayfasi")
         
+        # Geri/İleri butonları
         nav_frame = ctk.CTkFrame(self.sol_menu, fg_color="transparent")
-        nav_frame.grid(row=7, column=0, padx=20, pady=(10, 10))
+        nav_frame.grid(row=6, column=0, padx=20, pady=(10, 10))
         
         self.btn_geri = ctk.CTkButton(nav_frame, text="⟲", font=FontManager.get_font(24, "bold"), width=45, height=45, corner_radius=22, command=self.islemi_geri_al, fg_color="transparent", text_color=renkler["yazi_ikincil"], state="disabled")
         self.btn_geri.pack(side="left", padx=5)
         self.btn_ileri = ctk.CTkButton(nav_frame, text="⟳", font=FontManager.get_font(24, "bold"), width=45, height=45, corner_radius=22, command=self.islemi_ileri_al, fg_color="transparent", text_color=renkler["yazi_ikincil"], state="disabled")
         self.btn_ileri.pack(side="left", padx=5)
 
-        self.btn_tema = ctk.CTkButton(self.sol_menu, text=metinler[self.aktif_dil]["tema_degistir"], font=FontManager.get_font(13), command=self.tema_degistir, fg_color="transparent", text_color=renkler["yazi_ana"])
-        self.btn_tema.grid(row=8, column=0, padx=20, pady=(10, 5))
-        self.btn_dil = ctk.CTkButton(self.sol_menu, text=metinler[self.aktif_dil]["dil_sec"], font=FontManager.get_font(13), command=self.dil_degistir, fg_color="transparent", text_color=renkler["yazi_ana"])
-        self.btn_dil.grid(row=9, column=0, padx=20, pady=(5, 20))
+        # Kullanıcı Değiştir Butonu
+        ctk.CTkButton(self.sol_menu, text=metinler[self.aktif_dil]["kullanici_degistir"], font=FontManager.get_font(13), command=self.kullanici_degistir, fg_color="transparent", text_color=renkler["uyari"]).grid(row=7, column=0, padx=20, pady=(10, 5))
+        
+        # Tema ve Dil
+        ctk.CTkButton(self.sol_menu, text=metinler[self.aktif_dil]["tema_degistir"], font=FontManager.get_font(13), command=self.tema_degistir, fg_color="transparent", text_color=renkler["yazi_ana"]).grid(row=8, column=0, padx=20, pady=(5, 5))
+        ctk.CTkButton(self.sol_menu, text=metinler[self.aktif_dil]["dil_sec"], font=FontManager.get_font(13), command=self.dil_degistir, fg_color="transparent", text_color=renkler["yazi_ana"]).grid(row=9, column=0, padx=20, pady=(5, 20))
 
         self.sayfa_goster("EnvanterSayfasi")
+
+    def kullanici_degistir(self):
+        # Mevcut geçmişi temizle ki yeni kullanıcı eskisini geri almasın
+        self.islem_gecmisi.clear()
+        self.ileri_gecmisi.clear()
+        self.login_ekrani_goster()
 
     def gui_guncelle(self):
         self.btn_geri.configure(state="normal" if self.islem_gecmisi else "disabled", fg_color=renkler["buton_mavi"] if self.islem_gecmisi else "transparent", text_color="#FFFFFF" if self.islem_gecmisi else renkler["yazi_ikincil"])
@@ -153,12 +167,12 @@ class EnvanterUygulamasi(ctk.CTk):
         dil = self.aktif_dil
         if islem.tip == "ekleme":
             self.db.malzeme_geri_yukle(islem.yeni_malzeme)
-            sm = stok_metni_olustur(islem.yeni_malzeme.miktar, islem.yeni_malzeme.birim, islem.yeni_malzeme.ikinci_miktar, islem.yeni_malzeme.ikinci_birim, islem.yeni_malzeme.ucuncu_miktar, islem.yeni_malzeme.ucuncu_birim)
+            sm = stok_metni_olustur(islem.yeni_malzeme.miktar, islem.yeni_malzeme.birim, islem.yeni_malzeme.ikinci_miktar, islem.yeni_malzeme.ikinci_birim, islem.yeni_malzeme.ucuncu_miktar, islem.yeni_malzeme.ucuncu_birim, aktif_dil=dil)
             islem_metni = f"{metinler[dil]['log_eklendi']} ({metinler[dil]['log_miktar']}: {sm})"
             islem.log_id = self.db.gecmis_ekle(islem.malzeme_id, islem.malzeme_isim, islem_metni, self.kullanici_adi)
         elif islem.tip == "silme":
             self.db.malzeme_sil(islem.malzeme_id)
-            sm = stok_metni_olustur(islem.eski_malzeme.miktar, islem.eski_malzeme.birim, islem.eski_malzeme.ikinci_miktar, islem.eski_malzeme.ikinci_birim, islem.eski_malzeme.ucuncu_miktar, islem.eski_malzeme.ucuncu_birim)
+            sm = stok_metni_olustur(islem.eski_malzeme.miktar, islem.eski_malzeme.birim, islem.eski_malzeme.ikinci_miktar, islem.eski_malzeme.ikinci_birim, islem.eski_malzeme.ucuncu_miktar, islem.eski_malzeme.ucuncu_birim, aktif_dil=dil)
             islem_metni = f"{metinler[dil]['log_silindi']} ({metinler[dil]['log_stok']}: {sm})"
             islem.log_id = self.db.gecmis_ekle(islem.malzeme_id, islem.malzeme_isim, islem_metni, self.kullanici_adi)
         elif islem.tip == "guncelleme":
@@ -174,13 +188,6 @@ class EnvanterUygulamasi(ctk.CTk):
 
     def dil_degistir(self):
         self.aktif_dil = "EN" if self.aktif_dil == "TR" else "TR"
-        # Ekranda o an var olan sol menü ve sağ içerik dahil her şeyi sil
-        for widget in self.winfo_children(): 
-            widget.destroy()
-            
-        self.sayfalar.clear() # Hafızadaki eski dilli sayfaları temizle
-        
-        # Tüm arayüzü yeni seçilen dil ile baştan inşa et
         self.ana_arayuzu_kur()
 
 if __name__ == "__main__":
