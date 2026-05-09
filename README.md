@@ -59,8 +59,12 @@ python main.py
 > pyinstaller --noconfirm --onefile --windowed main.py
 > ```
 >
-> **Dosyayı nerede bulabilirim?**
-İşlem bittiğinde, proje ana klasörünüzün içinde otomatik olarak bir **`dist/`** klasörü oluşacaktır. Uygulamanız bu klasörün içindedir. Bu dosyayı masaüstünüze sürükleyip bırakarak, klasörlerle uğraşmadan doğrudan çift tıklayıp kullanmaya başlayabilirsiniz.
+> **Uygulamayı nerede bulabilirim?**
+*   İşlem bittiğinde, proje klasörünüzün içindeki **dist/** klasörüne girin.
+*   **Windows:** `main.exe` dosyasını masaüstüne kopyalayıp doğrudan kullanabilirsiniz.
+*   **Linux:** `main` dosyasını masaüstüne aldıktan sonra sağ tıklayıp **Özellikler > İzinler** kısmından **"Dosyayı bir program gibi çalıştırmaya izin ver"** seçeneğini işaretleyin.
+
+Artık terminalle uğraşmadan, sadece çift tıklayarak envanter sisteminizi yönetebilirsiniz!
 
 ## 📐 Proje Yapısı
 
