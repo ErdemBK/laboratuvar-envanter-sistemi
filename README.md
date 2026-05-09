@@ -50,8 +50,7 @@ Sisteminizdeki laboratuvar verilerinin kaybolmasını veya yanlışlıkla silinm
 * `ayarlar.py`: Renk paletleri, fontlar ve dil çevirileri.
 
 
-> [!ÖNEMLİ]
-> **Önemli Not:** Uygulamayı (EXE dosyasını) mutlaka boş bir klasörün içinde çalıştırın. Program ilk açılışta veritabanı (`.db`) ve işlem kayıtları (`.log`) için otomatik olarak ek dosyalar oluşturacaktır. Masaüstünde dağınık durmaması için bir klasör içine almanız önerilir.
+> 🛑 **ÖNEMLİ NOT:** Uygulamayı (EXE dosyasını) mutlaka boş bir klasörün içinde çalıştırın. Program ilk açılışta veritabanı (`.db`) ve işlem kayıtları (`.log`) için otomatik olarak ek dosyalar oluşturacaktır. Masaüstünde dağınık durmaması için bir klasör içine almanız önerilir.
 
 ---
 **Hazırlayan:** [Erdem Büyükkahraman](https://github.com/ErdemBK)
