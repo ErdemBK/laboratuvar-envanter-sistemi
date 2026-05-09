@@ -12,6 +12,13 @@ Modern, hızlı ve güvenli bir şekilde laboratuvar envanterini, kimyasal stokl
 * **Yedekleme Sistemi:** Uygulama kapanışında otomatik yedekleme ve manuel veritabanı kurtarma seçenekleri.
 * **Kullanıcı Bazlı Log:** Hangi işlemin hangi kullanıcı tarafından, ne zaman yapıldığını takip eden detaylı hareket geçmişi.
 
+### 🛡️ Otomatik Yedekleme ve Veri Güvenliği
+
+Sisteminizdeki laboratuvar verilerinin kaybolmasını veya yanlışlıkla silinmesini önlemek için uygulamada **Akıllı Otomatik Yedekleme** sistemi bulunmaktadır:
+
+* Uygulamayı (EXE dosyasını) her kapattığınızda, o anki veritabanınızın bir kopyası (`.db` formatında) programın bulunduğu yerdeki **`Yedekler`** klasörüne otomatik olarak kaydedilir.
+* Dosya kirliliğini önlemek amacıyla sistem sadece **son 5 günün** yedeğini tutar, daha eski yedekler arka planda otomatik olarak temizlenir.
+* Herhangi bir veri kaybı yaşarsanız, uygulama içindeki **Yedekleme -> Veritabanını Kurtar** seçeneğini kullanarak `Yedekler` klasöründeki istediğiniz tarihi seçip sisteminizi anında eski haline döndürebilirsiniz.
 ## 🛠️ Kullanılan Teknolojiler
 
 * **Dil:** Python 3.x
