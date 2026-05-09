@@ -1,144 +1,172 @@
 import sqlite3
-import logging
-import threading
-from typing import List, Optional
+import os
+import shutil
 from modeller import Malzeme
 
 class DatabaseManager:
-    def __init__(self, db_name: str = "lab_envanter.db"):
-        self.db_name = db_name
-        self.conn = sqlite3.connect(self.db_name, check_same_thread=False, timeout=15)
-        self.conn.row_factory = sqlite3.Row
-        self.lock = threading.Lock()
-        self.hazirla()
+    def __init__(self, db_ismi="lab_envanter.db"):
+        self.db_ismi = db_ismi
+        self.baglan()
+        self.tablolari_olustur()
 
-    def hazirla(self) -> None:
-        with self.lock:
-            try:
-                self.conn.execute("PRAGMA journal_mode=WAL")
-                self.conn.execute("PRAGMA foreign_keys=ON")
-                self.conn.execute("CREATE TABLE IF NOT EXISTS kullanicilar (id INTEGER PRIMARY KEY AUTOINCREMENT, isim TEXT UNIQUE NOT NULL)")
-                self.conn.execute("""
-                    CREATE TABLE IF NOT EXISTS malzemeler (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT, isim TEXT NOT NULL, ambalaj_tipi TEXT, miktar REAL NOT NULL, birim TEXT, 
-                        ikinci_miktar REAL, ikinci_birim TEXT, ucuncu_miktar REAL, ucuncu_birim TEXT, donusum_orani REAL, lokasyon TEXT, notlar TEXT
-                    )
-                """)
-                self.conn.execute("CREATE INDEX IF NOT EXISTS idx_malz_isim ON malzemeler(isim COLLATE NOCASE)")
-                self.conn.execute("CREATE INDEX IF NOT EXISTS idx_malz_lok ON malzemeler(lokasyon COLLATE NOCASE)")
-                
-                self.conn.execute("""
-                    CREATE TABLE IF NOT EXISTS stok_gecmisi (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT, malzeme_id INTEGER, malzeme_ismi TEXT, 
-                        islem_tipi TEXT, degisim_miktari REAL, kullanici TEXT, islem_tarihi DATETIME DEFAULT (datetime('now', 'localtime'))
-                    )
-                """)
-                sutunlar = [k[1] for k in self.conn.execute("PRAGMA table_info(stok_gecmisi)").fetchall()]
-                if "malzeme_ismi" not in sutunlar: self.conn.execute("ALTER TABLE stok_gecmisi ADD COLUMN malzeme_ismi TEXT")
-                self.conn.commit()
-            except sqlite3.Error as e: logging.error(f"DB Hazırlama Hatası: {e}")
+    def baglan(self):
+        self.baglanti = sqlite3.connect(self.db_ismi)
+        self.baglanti.row_factory = sqlite3.Row
+        self.imlec = self.baglanti.cursor()
 
     def kapat(self):
-        self.conn.close()
+        if self.baglanti:
+            self.baglanti.close()
 
-    def yedek_al(self, hedef_yol: str) -> None:
-        with self.lock:
-            with sqlite3.connect(hedef_yol) as dest: self.conn.backup(dest)
+    def tablolari_olustur(self):
+        self.imlec.execute('''CREATE TABLE IF NOT EXISTS malzemeler (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            isim TEXT NOT NULL,
+            ambalaj_tipi TEXT,
+            miktar REAL,
+            birim TEXT,
+            ikinci_miktar REAL,
+            ikinci_birim TEXT,
+            ucuncu_miktar REAL,
+            ucuncu_birim TEXT,
+            donusum_orani REAL,
+            lokasyon TEXT,
+            notlar TEXT
+        )''')
+        
+        try:
+            self.imlec.execute("ALTER TABLE malzemeler ADD COLUMN dorduncu_miktar REAL DEFAULT 0.0")
+        except sqlite3.OperationalError: pass
+        try:
+            self.imlec.execute("ALTER TABLE malzemeler ADD COLUMN dorduncu_birim TEXT DEFAULT ''")
+        except sqlite3.OperationalError: pass
+        try:
+            self.imlec.execute("ALTER TABLE malzemeler ADD COLUMN besinci_miktar REAL DEFAULT 0.0")
+        except sqlite3.OperationalError: pass
+        try:
+            self.imlec.execute("ALTER TABLE malzemeler ADD COLUMN besinci_birim TEXT DEFAULT ''")
+        except sqlite3.OperationalError: pass
+        
+        self.imlec.execute('''CREATE TABLE IF NOT EXISTS islemler (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            malzeme_id INTEGER,
+            malzeme_isim TEXT,
+            islem_tipi TEXT,
+            detay TEXT,
+            kullanici TEXT,
+            tarih TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )''')
+        
+        self.imlec.execute('''CREATE TABLE IF NOT EXISTS kullanicilar (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            isim TEXT UNIQUE NOT NULL
+        )''')
+        self.baglanti.commit()
 
-    def yedek_kurtar(self, kaynak_yol: str) -> None:
-        with self.lock:
-            with sqlite3.connect(kaynak_yol) as source: source.backup(self.conn)
+    def malzeme_ekle(self, m: Malzeme):
+        self.imlec.execute('''INSERT INTO malzemeler 
+            (isim, ambalaj_tipi, miktar, birim, ikinci_miktar, ikinci_birim, ucuncu_miktar, ucuncu_birim, 
+            dorduncu_miktar, dorduncu_birim, besinci_miktar, besinci_birim, donusum_orani, lokasyon, notlar)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+            (m.isim, m.ambalaj_tipi, m.miktar, m.birim, m.ikinci_miktar, m.ikinci_birim, 
+            m.ucuncu_miktar, m.ucuncu_birim, m.dorduncu_miktar, m.dorduncu_birim, 
+            m.besinci_miktar, m.besinci_birim, m.donusum_orani, m.lokasyon, m.notlar))
+        self.baglanti.commit()
+        return self.imlec.lastrowid
 
-    def kullanicilari_getir(self) -> List[str]:
-        with self.lock: return [row['isim'] for row in self.conn.execute("SELECT isim FROM kullanicilar").fetchall()]
+    def malzemeleri_getir(self, arama=""):
+        if arama:
+            self.imlec.execute("SELECT * FROM malzemeler WHERE isim LIKE ? ORDER BY isim ASC", ('%'+arama+'%',))
+        else:
+            self.imlec.execute("SELECT * FROM malzemeler ORDER BY isim ASC")
+        return [dict(row) for row in self.imlec.fetchall()]
 
-    def kullanici_ekle(self, isim: str) -> None:
-        with self.lock:
-            try:
-                self.conn.execute("INSERT INTO kullanicilar (isim) VALUES (?)", (isim,))
-                self.conn.commit()
-            except sqlite3.IntegrityError: pass
+    def malzeme_getir_id(self, m_id):
+        self.imlec.execute("SELECT * FROM malzemeler WHERE id=?", (m_id,))
+        row = self.imlec.fetchone()
+        if row:
+            r = dict(row) # HATA ÖNLEYİCİ: Veriyi SQLite Row objesinden Dict'e çeviriyoruz
+            return Malzeme(
+                id=r.get('id'), 
+                isim=r.get('isim', ''), 
+                ambalaj_tipi=r.get('ambalaj_tipi') or '',
+                miktar=r.get('miktar') or 0.0, 
+                birim=r.get('birim') or '',
+                ikinci_miktar=r.get('ikinci_miktar') or 0.0, 
+                ikinci_birim=r.get('ikinci_birim') or '',
+                ucuncu_miktar=r.get('ucuncu_miktar') or 0.0, 
+                ucuncu_birim=r.get('ucuncu_birim') or '',
+                dorduncu_miktar=r.get('dorduncu_miktar') or 0.0, 
+                dorduncu_birim=r.get('dorduncu_birim') or '',
+                besinci_miktar=r.get('besinci_miktar') or 0.0, 
+                besinci_birim=r.get('besinci_birim') or '',
+                donusum_orani=r.get('donusum_orani') or 0.0, 
+                lokasyon=r.get('lokasyon') or '', 
+                notlar=r.get('notlar') or ''
+            )
+        return None
 
-    def kullanici_sil(self, isim: str) -> None:
-        with self.lock:
-            self.conn.execute("DELETE FROM kullanicilar WHERE isim = ?", (isim,))
-            self.conn.commit()
+    def stok_guncelle(self, m: Malzeme):
+        self.imlec.execute('''UPDATE malzemeler SET
+            miktar=?, birim=?, ikinci_miktar=?, ikinci_birim=?, ucuncu_miktar=?, ucuncu_birim=?, 
+            dorduncu_miktar=?, dorduncu_birim=?, besinci_miktar=?, besinci_birim=?, lokasyon=?, notlar=?
+            WHERE id=?''', 
+            (m.miktar, m.birim, m.ikinci_miktar, m.ikinci_birim, m.ucuncu_miktar, m.ucuncu_birim, 
+            m.dorduncu_miktar, m.dorduncu_birim, m.besinci_miktar, m.besinci_birim, m.lokasyon, m.notlar, m.id))
+        self.baglanti.commit()
 
-    def malzeme_ekle(self, m: Malzeme) -> int:
-        with self.lock:
-            imlec = self.conn.cursor()
-            imlec.execute("""
-                INSERT INTO malzemeler (isim, ambalaj_tipi, miktar, birim, ikinci_miktar, ikinci_birim, ucuncu_miktar, ucuncu_birim, donusum_orani, lokasyon, notlar)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (m.isim, m.ambalaj_tipi, m.miktar, m.birim, m.ikinci_miktar, m.ikinci_birim, m.ucuncu_miktar, m.ucuncu_birim, m.donusum_orani, m.lokasyon, m.notlar))
-            self.conn.commit()
-            return imlec.lastrowid
+    def malzeme_sil(self, m_id):
+        self.imlec.execute("DELETE FROM malzemeler WHERE id=?", (m_id,))
+        self.baglanti.commit()
 
-    def malzeme_geri_yukle(self, m: Malzeme) -> None:
-        with self.lock:
-            # DÜZELTME: INSERT OR REPLACE kaldırıldı. Güvenli geri alma.
-            self.conn.execute("""
-                INSERT INTO malzemeler (id, isim, ambalaj_tipi, miktar, birim, ikinci_miktar, ikinci_birim, ucuncu_miktar, ucuncu_birim, donusum_orani, lokasyon, notlar)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (m.id, m.isim, m.ambalaj_tipi, m.miktar, m.birim, m.ikinci_miktar, m.ikinci_birim, m.ucuncu_miktar, m.ucuncu_birim, m.donusum_orani, m.lokasyon, m.notlar))
-            self.conn.commit()
+    def malzeme_geri_yukle(self, m: Malzeme):
+        self.imlec.execute('''INSERT INTO malzemeler 
+            (id, isim, ambalaj_tipi, miktar, birim, ikinci_miktar, ikinci_birim, ucuncu_miktar, ucuncu_birim, 
+            dorduncu_miktar, dorduncu_birim, besinci_miktar, besinci_birim, donusum_orani, lokasyon, notlar)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+            (m.id, m.isim, m.ambalaj_tipi, m.miktar, m.birim, m.ikinci_miktar, m.ikinci_birim, 
+            m.ucuncu_miktar, m.ucuncu_birim, m.dorduncu_miktar, m.dorduncu_birim, 
+            m.besinci_miktar, m.besinci_birim, m.donusum_orani, m.lokasyon, m.notlar))
+        self.baglanti.commit()
 
-    def malzemeleri_getir(self, arama: str = "") -> List[sqlite3.Row]:
-        with self.lock:
-            if arama:
-                arama_str = f"%{arama}%"
-                return self.conn.execute("SELECT * FROM malzemeler WHERE isim LIKE ? OR lokasyon LIKE ?", (arama_str, arama_str)).fetchall()
-            return self.conn.execute("SELECT * FROM malzemeler").fetchall()
+    def gecmis_ekle(self, malzeme_id, malzeme_isim, detay, kullanici):
+        self.imlec.execute('''INSERT INTO islemler 
+            (malzeme_id, malzeme_isim, islem_tipi, detay, kullanici) 
+            VALUES (?, ?, ?, ?, ?)''', 
+            (malzeme_id, malzeme_isim, "İşlem", detay, kullanici))
+        self.baglanti.commit()
+        return self.imlec.lastrowid
 
-    def malzeme_getir_id(self, malzeme_id: int) -> Optional[Malzeme]:
-        with self.lock: 
-            row = self.conn.execute("SELECT * FROM malzemeler WHERE id = ?", (malzeme_id,)).fetchone()
-            if row: return Malzeme(id=row['id'], isim=row['isim'], ambalaj_tipi=row['ambalaj_tipi'], miktar=row['miktar'], birim=row['birim'], ikinci_miktar=row['ikinci_miktar'], ikinci_birim=row['ikinci_birim'], ucuncu_miktar=row['ucuncu_miktar'], ucuncu_birim=row['ucuncu_birim'], donusum_orani=row['donusum_orani'], lokasyon=row['lokasyon'], notlar=row['notlar'])
-            return None
+    def gecmis_sil(self, log_id):
+        self.imlec.execute("DELETE FROM islemler WHERE id=?", (log_id,))
+        self.baglanti.commit()
 
-    def stok_guncelle(self, m: Malzeme) -> None:
-        with self.lock:
-            self.conn.execute("""
-                UPDATE malzemeler SET miktar=?, birim=?, ikinci_miktar=?, ikinci_birim=?, ucuncu_miktar=?, ucuncu_birim=?, lokasyon=?, notlar=? WHERE id=?
-            """, (m.miktar, m.birim, m.ikinci_miktar, m.ikinci_birim, m.ucuncu_miktar, m.ucuncu_birim, m.lokasyon, m.notlar, m.id))
-            self.conn.commit()
+    def gecmisi_getir(self):
+        self.imlec.execute("SELECT * FROM islemler ORDER BY id DESC")
+        return [dict(r) for r in self.imlec.fetchall()]
 
-    def malzeme_sil(self, malzeme_id: int) -> None:
-        with self.lock: 
-            self.conn.execute("DELETE FROM malzemeler WHERE id = ?", (malzeme_id,))
-            self.conn.commit()
+    def kullanicilari_getir(self):
+        self.imlec.execute("SELECT isim FROM kullanicilar ORDER BY isim ASC")
+        return [row['isim'] for row in self.imlec.fetchall()]
 
-    def csv_ile_veri_aktar(self, csv_verileri: List[Malzeme]) -> None:
-        with self.lock:
-            try:
-                self.conn.execute("BEGIN TRANSACTION")
-                self.conn.execute("DELETE FROM malzemeler")
-                try: self.conn.execute("UPDATE sqlite_sequence SET seq = 0 WHERE name = 'malzemeler'")
-                except: pass
-                
-                imlec = self.conn.cursor()
-                for m in csv_verileri:
-                    imlec.execute("""
-                        INSERT INTO malzemeler (isim, ambalaj_tipi, miktar, birim, ikinci_miktar, ikinci_birim, ucuncu_miktar, ucuncu_birim, donusum_orani, lokasyon, notlar)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (m.isim, m.ambalaj_tipi, m.miktar, m.birim, m.ikinci_miktar, m.ikinci_birim, m.ucuncu_miktar, m.ucuncu_birim, m.donusum_orani, m.lokasyon, m.notlar))
-                self.conn.commit()
-            except Exception as e:
-                self.conn.rollback() 
-                raise e
+    def kullanici_ekle(self, isim):
+        try:
+            self.imlec.execute("INSERT INTO kullanicilar (isim) VALUES (?)", (isim,))
+            self.baglanti.commit()
+        except sqlite3.IntegrityError: pass
 
-    def gecmis_ekle(self, malzeme_id: int, malzeme_ismi: str, islem_tipi: str, kullanici: str) -> int:
-        with self.lock:
-            imlec = self.conn.cursor()
-            imlec.execute("INSERT INTO stok_gecmisi (malzeme_id, malzeme_ismi, islem_tipi, degisim_miktari, kullanici) VALUES (?, ?, ?, 0.0, ?)", 
-                          (malzeme_id, malzeme_ismi, islem_tipi, kullanici))
-            self.conn.commit()
-            return imlec.lastrowid
+    def kullanici_sil(self, isim):
+        self.imlec.execute("DELETE FROM kullanicilar WHERE isim=?", (isim,))
+        self.baglanti.commit()
 
-    def gecmis_sil(self, log_id: int) -> None:
-        with self.lock: 
-            self.conn.execute("DELETE FROM stok_gecmisi WHERE id = ?", (log_id,))
-            self.conn.commit()
+    def yedek_al(self, hedef_yol):
+        self.baglanti.commit()
+        self.kapat()
+        shutil.copy2(self.db_ismi, hedef_yol)
+        self.baglan()
 
-    def gecmis_getir(self) -> List[sqlite3.Row]:
-        with self.lock: return self.conn.execute("SELECT id, malzeme_ismi, islem_tipi, kullanici, islem_tarihi FROM stok_gecmisi ORDER BY islem_tarihi DESC").fetchall()
+    def geri_yukle(self, kaynak_yol):
+        self.kapat()
+        shutil.copy2(kaynak_yol, self.db_ismi)
+        self.baglan()
+        self.tablolari_olustur()

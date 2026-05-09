@@ -1,64 +1,155 @@
 import customtkinter as ctk
 from modeller import Malzeme, IslemTipi, stok_metni_olustur, miktar_dogrula, UndoIslemi
 from ayarlar import metinler, renkler
-from ui_bilesenleri import FontManager, OzelBilgiKutusu
+from ui_bilesenleri import FontManager, OzelBilgiKutusu, OzelOnayKutusu
 
 class EkleSayfasi(ctk.CTkFrame):
     def __init__(self, master, app):
         super().__init__(master, fg_color="transparent")
         self.app = app
         self.db = app.db
+        self.miktar_satirlari = []
         self.kur()
 
     def kur(self):
-        ctk.CTkLabel(self, text=metinler[self.app.aktif_dil]["yeni_ekle"], font=FontManager.get_font(26, "bold")).pack(pady=(10, 20), anchor="w", padx=20)
-        f = ctk.CTkScrollableFrame(self, fg_color="transparent"); f.pack(fill="both", expand=True, padx=20)
-        f.grid_columnconfigure(0, weight=0, minsize=160); f.grid_columnconfigure(1, weight=1)
+        for widget in self.winfo_children():
+            widget.destroy()
+            
+        self.miktar_satirlari.clear()
+
+        ctk.CTkLabel(
+            self, text=metinler[self.app.aktif_dil]["yeni_ekle"], 
+            font=FontManager.get_font(26, "bold"), text_color=renkler["yazi_ana"]
+        ).pack(pady=(10, 20), anchor="w", padx=20)
         
-        birimler = metinler[self.app.aktif_dil]["birimler"]
-        L_font = FontManager.get_font(15)
-
-        ctk.CTkLabel(f, text=metinler[self.app.aktif_dil]["malzeme_adi"], font=L_font).grid(row=0, column=0, padx=10, pady=12, sticky="w")
-        self.e_isim = ctk.CTkEntry(f, width=250, placeholder_text=metinler[self.app.aktif_dil]["orn_isim"]); self.e_isim.grid(row=0, column=1, padx=10, pady=12, sticky="w")
+        self.f_scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        self.f_scroll.pack(fill="both", expand=True, padx=20)
         
-        ctk.CTkLabel(f, text=metinler[self.app.aktif_dil]["lokasyon"], font=L_font).grid(row=1, column=0, padx=10, pady=12, sticky="w")
-        self.e_lok = ctk.CTkEntry(f, width=250, placeholder_text=metinler[self.app.aktif_dil]["orn_lok"]); self.e_lok.grid(row=1, column=1, padx=10, pady=12, sticky="w")
+        self.e_isim = self.field_ekle("malzeme_adi", "orn_isim")
+        self.e_lok = self.field_ekle("lokasyon", "orn_lok")
+        
+        self.miktar_frame = ctk.CTkFrame(self.f_scroll, fg_color="transparent")
+        self.miktar_frame.pack(fill="x", pady=10)
+        
+        self.yeni_satir_ekle()
+        
+        self.btn_artir = ctk.CTkButton(
+            self.f_scroll, text=metinler[self.app.aktif_dil]["miktar_ekle"], 
+            command=self.yeni_satir_ekle, fg_color="transparent", 
+            border_width=1, border_color=renkler["buton_mavi"], text_color=renkler["buton_mavi"]
+        )
+        self.btn_artir.pack(pady=10, anchor="w", padx=10)
+        
+        ctk.CTkLabel(
+            self.f_scroll, text=metinler[self.app.aktif_dil]["notlar"], 
+            font=FontManager.get_font(15), text_color=renkler["yazi_ana"]
+        ).pack(anchor="w", padx=10)
+        
+        self.t_not = ctk.CTkTextbox(self.f_scroll, width=400, height=80, font=FontManager.get_font(14))
+        self.t_not.pack(padx=10, pady=5, anchor="w")
+        
+        btn_f = ctk.CTkFrame(self.f_scroll, fg_color="transparent")
+        btn_f.pack(fill="x", pady=20)
+        
+        ctk.CTkButton(
+            btn_f, text=metinler[self.app.aktif_dil]["kaydet"], fg_color=renkler["basari"], 
+            font=FontManager.get_font(14, "bold"), command=self.malzeme_kaydet
+        ).pack(side="left", padx=10)
+        
+        ctk.CTkButton(
+            btn_f, text=metinler[self.app.aktif_dil]["temizle"], fg_color=renkler["tehlike"], 
+            font=FontManager.get_font(14, "bold"), command=self.temizle_onay
+        ).pack(side="left", padx=10)
 
-        def m_satir(r, key, ph):
-            ctk.CTkLabel(f, text=metinler[self.app.aktif_dil][key], font=L_font).grid(row=r, column=0, padx=10, pady=12, sticky="w")
-            fr = ctk.CTkFrame(f, fg_color="transparent"); fr.grid(row=r, column=1, sticky="w", padx=10)
-            e = ctk.CTkEntry(fr, width=120, placeholder_text=metinler[self.app.aktif_dil][ph]); e.pack(side="left")
-            c = ctk.CTkComboBox(fr, values=birimler, width=120); c.pack(side="left", padx=10)
-            return e, c
+    def field_ekle(self, key, ph):
+        fr = ctk.CTkFrame(self.f_scroll, fg_color="transparent")
+        fr.pack(fill="x", pady=5)
+        
+        ctk.CTkLabel(
+            fr, text=metinler[self.app.aktif_dil][key], width=150, anchor="w",
+            font=FontManager.get_font(14), text_color=renkler["yazi_ana"]
+        ).pack(side="left", padx=10)
+        
+        e = ctk.CTkEntry(
+            fr, width=250, placeholder_text=metinler[self.app.aktif_dil][ph], font=FontManager.get_font(14)
+        )
+        e.pack(side="left")
+        return e
 
-        self.e_m1, self.c_b1 = m_satir(2, "ana_miktar", "miktar_zorunlu")
-        self.e_m2, self.c_b2 = m_satir(3, "ek_miktar_2", "opsiyonel")
-        self.e_m3, self.c_b3 = m_satir(4, "ek_miktar_3", "opsiyonel")
+    def yeni_satir_ekle(self):
+        if len(self.miktar_satirlari) >= 5: 
+            return
+            
+        fr = ctk.CTkFrame(self.miktar_frame, fg_color="transparent")
+        fr.pack(fill="x", pady=2)
+        
+        lbl_metin = f"{len(self.miktar_satirlari)+1}. {metinler[self.app.aktif_dil]['log_miktar']}"
+        
+        ctk.CTkLabel(
+            fr, text=lbl_metin, width=150, anchor="w",
+            font=FontManager.get_font(14), text_color=renkler["yazi_ana"]
+        ).pack(side="left", padx=10)
+        
+        e = ctk.CTkEntry(fr, width=120, font=FontManager.get_font(14))
+        e.pack(side="left")
+        
+        c = ctk.CTkComboBox(
+            fr, values=metinler[self.app.aktif_dil]["birimler"], 
+            width=120, font=FontManager.get_font(14)
+        )
+        c.pack(side="left", padx=10)
+        
+        self.miktar_satirlari.append((e, c))
+        
+        if len(self.miktar_satirlari) == 5: 
+            self.btn_artir.configure(state="disabled")
 
-        ctk.CTkLabel(f, text=metinler[self.app.aktif_dil]["notlar"], font=L_font).grid(row=5, column=0, padx=10, pady=12, sticky="nw")
-        self.t_not = ctk.CTkTextbox(f, width=250, height=80); self.t_not.grid(row=5, column=1, padx=10, pady=12, sticky="w")
-
-        ctk.CTkButton(f, text=metinler[self.app.aktif_dil]["kaydet"], font=FontManager.get_font(16, "bold"), fg_color=renkler["buton_mavi"], height=45, command=self.malzeme_kaydet).grid(row=6, column=0, columnspan=2, pady=30, sticky="w", padx=10)
+    def temizle_onay(self):
+        OzelOnayKutusu(
+            self.winfo_toplevel(), metinler[self.app.aktif_dil]["onay_baslik"], 
+            metinler[self.app.aktif_dil]["emin_misin_temizle"], self.kur
+        )
 
     def malzeme_kaydet(self):
         try:
             isim = self.e_isim.get().strip()
-            if not isim: OzelBilgiKutusu(self.winfo_toplevel(), "Eksik", "İsim girin!", renk=renkler["uyari"]); return
-            
-            m1, m2, m3 = miktar_dogrula(self.e_m1.get().strip()), miktar_dogrula(self.e_m2.get().strip()), miktar_dogrula(self.e_m3.get().strip())
-            y_m = Malzeme(isim=isim, ambalaj_tipi="", miktar=m1, birim=self.c_b1.get(), ikinci_miktar=m2, ikinci_birim=self.c_b2.get(), ucuncu_miktar=m3, ucuncu_birim=self.c_b3.get(), donusum_orani=0.0, lokasyon=self.e_lok.get().strip(), notlar=self.t_not.get("1.0", "end-1c"))
-            
-            y_id = self.db.malzeme_ekle(y_m); y_m.id = y_id
-            
-            # DINAMIK LOG
             dil = self.app.aktif_dil
-            # DÜZELTME: aktif_dil eklendi
-            stok_log = stok_metni_olustur(m1, y_m.birim, m2, y_m.ikinci_birim, m3, y_m.ucuncu_birim, aktif_dil=dil)
+            
+            if not isim: 
+                OzelBilgiKutusu(self.winfo_toplevel(), "Hata", "Lütfen malzeme adını giriniz!", renk=renkler["tehlike"])
+                return
+                
+            m_vals = [miktar_dogrula(e.get()) for e, c in self.miktar_satirlari]
+            b_vals = [c.get() for e, c in self.miktar_satirlari]
+            
+            while len(m_vals) < 5:
+                m_vals.append(0.0)
+                b_vals.append("")
+                
+            y_m = Malzeme(
+                isim=isim, 
+                miktar=m_vals[0], birim=b_vals[0], 
+                ikinci_miktar=m_vals[1], ikinci_birim=b_vals[1], 
+                ucuncu_miktar=m_vals[2], ucuncu_birim=b_vals[2], 
+                dorduncu_miktar=m_vals[3], dorduncu_birim=b_vals[3],
+                besinci_miktar=m_vals[4], besinci_birim=b_vals[4],
+                lokasyon=self.e_lok.get().strip(), notlar=self.t_not.get("1.0", "end-1c")
+            )
+            
+            y_id = self.db.malzeme_ekle(y_m)
+            y_m.id = y_id
+            
+            stok_log = stok_metni_olustur(m_vals[0], b_vals[0], m_vals[1], b_vals[1], m_vals[2], b_vals[2], m_vals[3], b_vals[3], m_vals[4], b_vals[4], aktif_dil=dil)
             islem_metni = f"{metinler[dil]['log_eklendi']} ({metinler[dil]['log_miktar']}: {stok_log})"
             
             log_id = self.db.gecmis_ekle(y_id, isim, islem_metni, self.app.kullanici_adi)
             
             self.app.islem_gecmisi.append(UndoIslemi(tip="ekleme", malzeme_id=y_id, malzeme_isim=isim, log_id=log_id, yeni_malzeme=y_m))
-            for e in [self.e_isim, self.e_m1, self.e_m2, self.e_m3, self.e_lok]: e.delete(0, 'end')
-            self.t_not.delete("1.0", "end"); OzelBilgiKutusu(self.winfo_toplevel(), "Başarılı", f"'{isim}' eklendi!", renk=renkler["basari"]); self.app.gui_guncelle()
-        except ValueError as e: OzelBilgiKutusu(self.winfo_toplevel(), "Hata", str(e), renk=renkler["tehlike"])
+            self.app.ileri_gecmisi.clear()
+            
+            self.kur() 
+            OzelBilgiKutusu(self.winfo_toplevel(), "Başarılı", f"'{isim}' başarıyla eklendi!", renk=renkler["basari"])
+            self.app.gui_guncelle()
+            
+        except Exception as e: 
+            OzelBilgiKutusu(self.winfo_toplevel(), "Hata", str(e), renk=renkler["tehlike"])

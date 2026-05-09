@@ -1,7 +1,4 @@
-# ayarlar.py
-# ---------------------------------------------------------
-# Laboratuvar Envanter Sistemi - Yapılandırma ve Dil Dosyası
-# ---------------------------------------------------------
+font_tipi = "Segoe UI"
 
 metinler = {
     "TR": {
@@ -18,19 +15,26 @@ metinler = {
         "lokasyon": "Lokasyon (Raf/Oda):",
         "notlar": "Özel Notlar:",
         "kaydet": "💾 Kaydet",
+        "temizle": "🧹 Formu Temizle",
+        "miktar_ekle": "➕ Miktar Ekle",
         "guncelle": "Güncelle",
         "sil": "Sil",
         "arama": "🔍 Malzeme ara...",
         "disa_aktar": "📊 Excel'e Aktar",
         "gecmisi_disa_aktar": "📊 Geçmişi Excel'e Aktar",
         "toplam": "Toplam Çeşit: ",
+        "onay_baslik": "İşlemi Onaylıyor musunuz?",
         "emin_misin_kullanici": "'{}' kullanıcısını silmek istediğinize emin misiniz?",
         "emin_misin_malzeme": "Bu malzemeyi kalıcı olarak silmek istediğinize emin misiniz?",
+        "emin_misin_temizle": "Tüm alanlar sıfırlanacak. Onaylıyor musunuz?",
+        "emin_misin_csv": "Uyarı: Mevcut envanter silinecek ve Excel'deki veriler yüklenecek. Onaylıyor musunuz?",
         "evet": "Evet, Onaylıyorum",
         "hayir": "İptal",
-        "ana_miktar": "1. Ana Miktar:",
-        "ek_miktar_2": "2. Ek Miktar:",
-        "ek_miktar_3": "3. Ek Miktar:",
+        "ana_miktar": "1. Miktar:",
+        "ek_miktar_2": "2. Miktar:",
+        "ek_miktar_3": "3. Miktar:",
+        "ek_miktar_4": "4. Miktar:",
+        "ek_miktar_5": "5. Miktar:",
         "miktar_zorunlu": "Miktar (Zorunlu)",
         "opsiyonel": "Opsiyonel",
         "db_islemleri": "Veritabanı (.db) İşlemleri",
@@ -58,7 +62,10 @@ metinler = {
         "log_silindi": "Kalıcı Olarak Silindi",
         "log_guncellendi": "Bilgiler Güncellendi",
         "log_miktar": "Miktar",
-        "log_stok": "Son Stok"
+        "log_stok": "Son Stok",
+        "excel_isim": "Malzeme İsmi",
+        "excel_miktar": "Stok Detayı",
+        "excel_lok": "Konum"
     },
     "EN": {
         "title": "Laboratory Inventory System",
@@ -74,19 +81,26 @@ metinler = {
         "lokasyon": "Location (Shelf/Room):",
         "notlar": "Special Notes:",
         "kaydet": "💾 Save",
+        "temizle": "🧹 Clear Form",
+        "miktar_ekle": "➕ Add Amount",
         "guncelle": "Update",
         "sil": "Delete",
         "arama": "🔍 Search items...",
         "disa_aktar": "📊 Export to Excel",
         "gecmisi_disa_aktar": "📊 Export History",
         "toplam": "Total Items: ",
+        "onay_baslik": "Do you confirm?",
         "emin_misin_kullanici": "Are you sure you want to delete user '{}'?",
         "emin_misin_malzeme": "Are you sure you want to permanently delete this item?",
+        "emin_misin_temizle": "All fields will be reset. Do you confirm?",
+        "emin_misin_csv": "Warning: Current inventory will be deleted and replaced with Excel data. Do you confirm?",
         "evet": "Yes, Confirm",
         "hayir": "Cancel",
         "ana_miktar": "1. Main Qty:",
         "ek_miktar_2": "2. Extra Qty:",
         "ek_miktar_3": "3. Extra Qty:",
+        "ek_miktar_4": "4. Extra Qty:",
+        "ek_miktar_5": "5. Extra Qty:",
         "miktar_zorunlu": "Amount (Req)",
         "opsiyonel": "Optional",
         "db_islemleri": "Database (.db) Operations",
@@ -114,21 +128,22 @@ metinler = {
         "log_silindi": "Permanently Deleted",
         "log_guncellendi": "Information Updated",
         "log_miktar": "Quantity",
-        "log_stok": "Last Stock"
+        "log_stok": "Last Stock",
+        "excel_isim": "Material Name",
+        "excel_miktar": "Stock Detail",
+        "excel_lok": "Location"
     }
 }
 
-font_tipi = "Segoe UI"
-
 renkler = {
-    "arkaplan": ("#F0F4F8", "#13151A"),          
-    "menu": ("#FFFFFF", "#1E2028"),               
-    "kart": ("#FFFFFF", "#272A35"),               
-    "yazi_ana": ("#111827", "#F9FAFB"),           
-    "yazi_ikincil": ("#6B7280", "#9CA3AF"),       
-    "buton_mavi": ("#3B82F6", "#3B82F6"),         
-    "buton_mavi_hover": ("#2563EB", "#2563EB"),   
-    "basari": ("#10B981", "#10B981"),             
-    "tehlike": ("#EF4444", "#EF4444"),            
-    "uyari": ("#F59E0B", "#F59E0B")               
+    "arkaplan": ("#F0F4F8", "#13151A"),
+    "menu": ("#FFFFFF", "#1E2028"),
+    "kart": ("#FFFFFF", "#272A35"),          
+    "yazi_ana": ("#111827", "#F9FAFB"),
+    "yazi_ikincil": ("#6B7280", "#9CA3AF"),
+    "buton_mavi": ("#3B82F6", "#3B82F6"),    
+    "buton_mavi_hover": ("#2563EB", "#2563EB"),
+    "basari": ("#10B981", "#10B981"),
+    "tehlike": ("#EF4444", "#EF4444"),
+    "uyari": ("#F59E0B", "#F59E0B")          
 }
