@@ -59,7 +59,7 @@ python main.py
 > pyinstaller --noconfirm --onefile --windowed main.py
 > ```
 >
-> Oluşturulan dosya **dist** klasörü içinde yer alır ve işletim sistemine göre çift tıklayarak çalıştırılabilir.
+> Oluşturulan dosya `dist` klasörü içinde yer alır
 
 ## 📐 Proje Yapısı
 
