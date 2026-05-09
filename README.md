@@ -59,7 +59,8 @@ python main.py
 > pyinstaller --noconfirm --onefile --windowed main.py
 > ```
 >
-> Oluşturulan dosya `dist` klasörü içinde yer alır
+> **Dosyayı nerede bulabilirim?**
+İşlem bittiğinde, proje ana klasörünüzün içinde otomatik olarak bir **`dist/`** klasörü oluşacaktır. Uygulamanız bu klasörün içindedir. Bu dosyayı masaüstünüze sürükleyip bırakarak, klasörlerle uğraşmadan doğrudan çift tıklayıp kullanmaya başlayabilirsiniz.
 
 ## 📐 Proje Yapısı
 
