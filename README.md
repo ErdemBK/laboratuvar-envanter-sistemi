@@ -1,4 +1,3 @@
-Markdown
 # 🧪 Bulut Tabanlı Laboratuvar Envanter Sistemi v2.0 (Cloud-Based Laboratory Inventory System)
 
 Modern, hızlı, güvenli ve çoklu kullanıcı destekli bir şekilde laboratuvar envanterini, kimyasal stoklarını ve malzeme hareketlerini takip etmek için geliştirilmiş bulut tabanlı bir masaüstü uygulamasıdır. Projenin ilk versiyonundaki yerel SQLite ve CustomTkinter mimarisi; yerini **Flet (Flutter tabanlı) UI framework** ve **Neon PostgreSQL bulut veritabanı** entegrasyonuna bırakarak tamamen cross-platform, çok kullanıcılı ve gerçek zamanlı senkronizasyon yeteneğine kavuşturulmuştur.
@@ -46,52 +45,91 @@ Proje, spagetti kod yapısından tamamen uzak, katmanlı ve her modülün kendi 
 * `sayfa_gecmis.py`: Kullanıcı aksiyonlarını geriye dönük detaylarıyla listeleyen loglama arayüzü.
 * `sayfa_yedekleme.py`: Manuel veri yedekleme, Excel çıktısı alma ve bulut kurtarma arayüzü.
 
+---
+
 ## 🚀 Kurulum ve Çalıştırma
 
-Uygulamayı kaynak kodundan (Windows, Linux, macOS) çalıştırmak isterseniz aşağıdaki adımları izleyebilirsiniz:
-
-1. Depoyu bilgisayarınıza indirin ve proje klasörüne girin:
+Öncelikle depoyu bilgisayarınıza indirin ve proje klasörüne giriş yapın:
 
 ```bash
-git clone [https://github.com/ErdemBK/laboratuvar-envanter-sistemi.git](https://github.com/ErdemBK/laboratuvar-envanter-sistemi.git)
+git clone https://github.com/ErdemBK/laboratuvar-envanter-sistemi.git
 cd laboratuvar-envanter-sistemi
-Gerekli kütüphaneleri kurun:
+```
 
-Bash
+Ardından kullandığınız işletim sistemine göre aşağıdaki adımları takip edin:
+
+### 🪟 Windows Kullanıcıları İçin
+
+1. Gerekli kütüphaneleri kurun:
+```cmd
 pip install -r requirements.txt
-(Linux/macOS kullanıcıları alternatif olarak şunu kullanabilir: python3 -m pip install -r requirements.txt)
+```
 
-Uygulamayı başlatın:
-
-Bash
+2. Uygulamayı başlatın:
+```cmd
 python main.py
-(Linux/macOS kullanıcıları alternatif olarak şunu kullanabilir: python3 main.py)
+```
 
-📦 Dağıtım ve Dağıtılabilir Sürüm (Executable) Oluşturma
-Terminal bağımlılığı olmadan, uygulamayı tek bir yürütülebilir (.exe veya binary) dosya haline getirip son kullanıcılara dağıtmak için iki güçlü seçeneğiniz vardır:
+### 🐧 Linux / macOS Kullanıcıları İçin
 
-Seçenek A: Flet CLI ile Paketleme (Önerilen)
-Bash
+1. Gerekli kütüphaneleri kurun:
+```bash
+python3 -m pip install -r requirements.txt
+```
+
+2. Uygulamayı başlatın:
+```bash
+python3 main.py
+```
+
+---
+
+## 📦 Dağıtım ve Dağıtılabilir Sürüm (.exe / Binary) Oluşturma
+
+Terminal bağımlılığı olmadan, uygulamayı tek bir yürütülebilir dosya haline getirip son kullanıcılara dağıtmak için aşağıdaki komutları kullanabilirsiniz:
+
+### 🪟 Windows İçin Paketleme (.exe)
+
+**Flet CLI kullanarak (Önerilen):**
+```cmd
 flet pack main.py --name "Bulut_Envanter_Sistemi"
-Seçenek B: Standart PyInstaller ile Paketleme
-Her seferinde terminal kullanmak istemiyorsanız, önce pip install pyinstaller komutunu çalıştırın. Ardından aşağıdaki komutla uygulamanın bağımsız çalıştırılabilir sürümünü oluşturabilirsiniz:
+```
 
-Bash
+**Standart PyInstaller kullanarak:**
+```cmd
+pip install pyinstaller
 pyinstaller --noconfirm --onefile --windowed main.py
-🐧 Linux Kullanıcıları İçin Önemli Çalıştırma Notu:
-İşlem bittiğinde, proje klasörünüzün içindeki dist/ klasörüne girin. Derlenen dosyayı masaüstüne aldıktan sonra doğrudan çift tıklayarak çalıştırabilmek için işletim sistemine izin vermeniz gerekir:
+```
+*(İşlem bittiğinde çalıştırılabilir `.exe` dosyanız `dist/` klasörünün içinde yer alacaktır.)*
 
-Yöntem 1 (Terminal): Dosyanın olduğu klasörde terminal açın ve şu komutu uygulayın:
+### 🐧 Linux / macOS İçin Paketleme (Binary)
 
-Bash
+**Flet CLI kullanarak (Önerilen):**
+```bash
+flet pack main.py --name "Bulut_Envanter_Sistemi"
+```
+
+**Standart PyInstaller kullanarak:**
+```bash
+python3 -m pip install pyinstaller
+pyinstaller --noconfirm --onefile --windowed main.py
+```
+
+#### ⚠️ Linux Kullanıcıları İçin Çalıştırma İzni Notu:
+Derleme işlemi bittikten sonra, `dist/` klasörü içinde oluşan dosyayı çift tıklayarak çalıştırabilmek için işletim sisteminden izin vermeniz gerekir. İki yöntemden birini seçebilirsiniz:
+
+* **Yöntem 1 (Terminal ile):** Dosyanın bulunduğu klasörde terminal açın ve şu komutu çalıştırın:
+```bash
 chmod +x Bulut_Envanter_Sistemi
-Yöntem 2 (Arayüz): Dosyaya sağ tıklayıp Özellikler > İzinler (Properties > Permissions) kısmından "Dosyayı bir program gibi çalıştırmaya izin ver" (Allow executing file as program) seçeneğini işaretleyin.
+```
 
-[!IMPORTANT]
-Önemli Güvenlik ve Kota Notu:
+* **Yöntem 2 (Arayüz ile):** Dosyaya sağ tıklayıp **Özellikler > İzinler (Properties > Permissions)** sekmesine gelin. Oradaki **"Dosyayı bir program gibi çalıştırmaya izin ver" (Allow executing file as program)** seçeneğini işaretleyin.
 
-PostgreSQL mimarisinin doğası gereği, veritabanı tamamen boş olsa dahi sistem katalogları ve şema dosyaları nedeniyle standart olarak ~7.5 MB depolama alanı kaplar. Uygulama içerisine ekleyeceğiniz her bir malzeme kaydı sadece birkaç bayt boyutunda yer kapladığından, Neon Free Tier tarafından sunulan 500 MB'lık ücretsiz kota on binlerce ürünlük bir laboratuvarda dahi güvenle yetecektir.
+---
 
-Güvenliğiniz için bulut veritabanı bağlantı linkinizi (postgresql://...) kimseyle paylaşmayınız. Projeyi GitHub'a yüklemeden önce gizli bilgilerin internete sızmasını önlemek adına .env ve yerel_hafiza.json dosyalarının temizlendiğinden veya .gitignore listesinde yer aldığından emin olunuz.
+> [!IMPORTANT]  
+> **Önemli Güvenlik ve Kota Notu:** > 1. PostgreSQL mimarisinin doğası gereği, veritabanı tamamen boş olsa dahi sistem katalogları ve şema dosyaları nedeniyle standart olarak `~7.5 MB` depolama alanı kaplar. Uygulama içerisine ekleyeceğiniz her bir malzeme kaydı sadece birkaç bayt boyutunda yer kapladığından, Neon Free Tier tarafından sunulan 500 MB'lık ücretsiz kota on binlerce ürünlük bir laboratuvarda dahi güvenle yetecektir.  
+> 2. Güvenliğiniz için bulut veritabanı bağlantı linkinizi (`postgresql://...`) kimseyle paylaşmayınız. Projeyi GitHub'a yüklemeden önce gizli bilgilerin internete sızmasını önlemek adına `.env` ve `yerel_hafiza.json` dosyalarının silindiğinden veya `.gitignore` listesinde yer aldığından emin olunuz.
 
-Geliştirici: Erdem Büyükkahraman
+---
+**Geliştirici:** [Erdem Büyükkahraman](https://github.com/ErdemBK)
