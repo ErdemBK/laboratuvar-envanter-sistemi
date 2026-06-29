@@ -1,11 +1,14 @@
-# Python önbellek dosyaları
+# Derleme ve Önbellek Dosyaları
 __pycache__/
-*.pyc
-
-# Veritabanı, Yedekler ve Loglar (Gizli Kalmalı!)
-lab_envanter.db
-Yedekler/
-app.log
-*.db
 build/
 dist/
+*.spec
+*.pyc
+
+# Veritabanı, Yedekler ve Loglar
+Yedekler/
+yerel_hafiza.json
+.env
+app.log
+*.db
+*.csv

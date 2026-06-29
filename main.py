@@ -1,334 +1,130 @@
-import customtkinter as ctk
-import os
-import logging
-import traceback
-from datetime import datetime
+# main.py
+import flet as ft
+import ayarlar
+import sayfa_baglanti
+import sayfa_envanter
+import sayfa_ekle
+import sayfa_konumlar
+import sayfa_gecmis
+import sayfa_yedekleme
+import sayfa_kullanici
+import ui_bilesenleri
+import veri
 
-from veritabani import DatabaseManager
-from modeller import IslemTipi, stok_metni_olustur, UndoIslemi
-from ayarlar import metinler, renkler, font_tipi
-from ui_bilesenleri import FontManager, OzelOnayKutusu, OzelBilgiKutusu
+def main(page: ft.Page):
+    d = ayarlar.dil
+    page.title = d("Bulut Envanter Sistemi v2.0", "Cloud Inventory System v2.0")
+    page.theme_mode = "dark"; page.bgcolor = ayarlar.TEMA_RENKLER["arkaplan"]; page.padding = 0
+    page.window.width = 1400; page.window.height = 900; page.window.min_width = 1000; page.window.min_height = 700
 
-from sayfa_envanter import EnvanterSayfasi
-from sayfa_ekle import EkleSayfasi
-from sayfa_gecmis import GecmisSayfasi
-from sayfa_yedekleme import YedeklemeSayfasi
+    ana_govde = ft.Container(expand=True)
+    page.add(ana_govde)
 
-class EnvanterUygulamasi(ctk.CTk):
-    def __init__(self, db_manager: DatabaseManager):
-        super().__init__()
-        
-        self.db = db_manager
-        self.withdraw()
-        
-        self.aktif_dil = "TR"
-        self.aktif_tema = "dark"
-        self.kullanici_adi = ""
-        
-        self.islem_gecmisi = [] 
-        self.ileri_gecmisi = [] 
-        self.sayfalar = {} 
-        
-        self.protocol("WM_DELETE_WINDOW", self.on_closing)
-        ctk.set_appearance_mode(self.aktif_tema)
-        
-        self.login_ekrani_goster()
-
-    def on_closing(self):
-        try:
-            # 1. Klasör yoksa oluştur ve bugünün yedeğini al
-            os.makedirs("Yedekler", exist_ok=True)
-            bugun_tarih = datetime.now().strftime('%Y_%m_%d')
-            yeni_yedek_yolu = f"Yedekler/oto_yedek_{bugun_tarih}.db"
-            self.db.yedek_al(yeni_yedek_yolu)
-            
-            # 2. ESKİ YEDEKLERİ OTOMATİK SİLME MANTIĞI (Sadece son 5 yedeği tutar)
-            yedekler = [f for f in os.listdir("Yedekler") if f.startswith("oto_yedek_") and f.endswith(".db")]
-            
-            # İsimleri tarihe göre ters sırala (En yeniler en başta olsun)
-            yedekler.sort(reverse=True)
-            
-            # Eğer 5'ten fazla dosya varsa, 5. dosyadan sonrakilerin hepsini sil
-            if len(yedekler) > 5:
-                silinecekler = yedekler[5:]
-                for eski_dosya in silinecekler:
-                    try:
-                        os.remove(os.path.join("Yedekler", eski_dosya))
-                    except Exception as e:
-                        print(f"Eski yedek silinemedi: {e}")
-                        
-        except Exception as e: 
-            logging.error(f"Yedekleme ve temizlik hatası: {e}")
-            
-        finally: 
-            self.db.kapat()
-            self.destroy()
-
-    def login_ekrani_goster(self):
-        self.withdraw()
-        
-        self.login = ctk.CTkToplevel(self)
-        self.login.title(metinler[self.aktif_dil]["title"])
-        self.login.geometry("400x480")
-        self.login.protocol("WM_DELETE_WINDOW", self.on_closing)
-        self.login.attributes("-topmost", True)
-        self.login.configure(fg_color=renkler["arkaplan"])
-
-        ctk.CTkLabel(
-            self.login, text=metinler[self.aktif_dil]["kim_giris"], 
-            font=FontManager.get_font(24, "bold"), text_color=renkler["yazi_ana"]
-        ).pack(pady=(20, 10))
-        
-        self.kullanici_frame = ctk.CTkScrollableFrame(self.login, fg_color="transparent", height=200)
-        self.kullanici_frame.pack(fill="x", padx=20, pady=10)
-        
-        self.kullanici_listesini_ciz()
-
-        ctk.CTkLabel(
-            self.login, text=metinler[self.aktif_dil]["yeni_kullanici"], 
-            font=FontManager.get_font(14), text_color=renkler["yazi_ikincil"]
-        ).pack(pady=(10, 0))
-        
-        yeni_f = ctk.CTkFrame(self.login, fg_color="transparent")
-        yeni_f.pack(pady=5)
-        
-        self.yeni_isim_entry = ctk.CTkEntry(
-            yeni_f, placeholder_text=metinler[self.aktif_dil]["isim_girin"], 
-            font=FontManager.get_font(14), width=160
-        )
-        self.yeni_isim_entry.pack(side="left", padx=5)
-        
-        ctk.CTkButton(
-            yeni_f, text=metinler[self.aktif_dil]["ekle_btn"], width=60, 
-            font=FontManager.get_font(14, "bold"), fg_color=renkler["buton_mavi"], 
-            command=self.kullanici_ekle
-        ).pack(side="left")
-
-    def kullanici_ekle(self):
-        isim = self.yeni_isim_entry.get().strip()
-        if isim:
-            self.db.kullanici_ekle(isim)
-            self.yeni_isim_entry.delete(0, 'end')
-            self.kullanici_listesini_ciz()
-
-    def kullanici_listesini_ciz(self):
-        for widget in self.kullanici_frame.winfo_children(): 
-            widget.destroy()
-            
-        kullanicilar = self.db.kullanicilari_getir()
-        
-        if not kullanicilar: 
-            ctk.CTkLabel(
-                self.kullanici_frame, text=metinler[self.aktif_dil]["kayitli_yok"], 
-                text_color=renkler["yazi_ikincil"]
-            ).pack(pady=20)
+    def sayfa_degistir(hedef):
+        page.aktif_sekme = hedef; page.title = d("Bulut Envanter Sistemi v2.0", "Cloud Inventory System v2.0")
+        if hedef in ["baglanti", "kullanici"]:
+            icerik = sayfa_baglanti.baglanti_gorunumu(page) if hedef == "baglanti" else sayfa_kullanici.kullanici_gorunumu(page)
+            ana_govde.content = ft.Row([ft.Column([icerik], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True)], alignment=ft.MainAxisAlignment.CENTER, expand=True)
         else:
-            for k in kullanicilar:
-                row = ctk.CTkFrame(self.kullanici_frame, fg_color=renkler["kart"])
-                row.pack(fill="x", pady=4)
-                
-                ctk.CTkButton(
-                    row, text=k, fg_color="transparent", text_color=renkler["yazi_ana"], 
-                    anchor="w", command=lambda isim=k: self.kullanici_secildi(isim)
-                ).pack(side="left", expand=True, fill="x", padx=10, pady=5)
-                
-                ctk.CTkButton(
-                    row, text="X", width=30, fg_color=renkler["tehlike"], 
-                    command=lambda isim=k: self.kullanici_sil_onay(isim)
-                ).pack(side="right", padx=5, pady=5)
+            sayfa_icerigi = ft.Container(expand=True, padding=30)
+            if hedef == "envanter": sayfa_icerigi.content = sayfa_envanter.envanter_gorunumu(page)
+            elif hedef == "ekle": sayfa_icerigi.content = sayfa_ekle.ekle_gorunumu(page)
+            elif hedef == "konumlar": sayfa_icerigi.content = sayfa_konumlar.konumlar_gorunumu(page)
+            elif hedef == "gecmis": sayfa_icerigi.content = sayfa_gecmis.gecmis_gorunumu(page)
+            elif hedef == "yedekleme": sayfa_icerigi.content = sayfa_yedekleme.yedekleme_gorunumu(page)
+            ana_govde.content = ft.Row([menu_olustur(), ft.VerticalDivider(width=1, color=ayarlar.TEMA_RENKLER["kart"]), sayfa_icerigi], expand=True, spacing=0)
+        page.update()
 
-    def kullanici_sil_onay(self, isim):
-        OzelOnayKutusu(
-            self.login, metinler[self.aktif_dil]["sil"], 
-            metinler[self.aktif_dil]["emin_misin_kullanici"].format(isim), 
-            lambda: (self.db.kullanici_sil(isim), self.kullanici_listesini_ciz())
+    page.sayfa_degistir = sayfa_degistir
+
+    def tetik_geri_al(e):
+        if veri.geri_al_motoru(): ui_bilesenleri.goster_toast(page, d("İşlem geri alındı", "Undone"), True); sayfa_degistir(page.aktif_sekme)
+        else: ui_bilesenleri.goster_toast(page, d("Geri alınacak işlem yok", "Nothing to undo"), False)
+
+    def tetik_ileri_al(e):
+        if veri.ileri_al_motoru(): ui_bilesenleri.goster_toast(page, d("İşlem ileri alındı", "Redone"), True); sayfa_degistir(page.aktif_sekme)
+        else: ui_bilesenleri.goster_toast(page, d("İleri alınacak işlem yok", "Nothing to redo"), False)
+
+    def menu_olustur():
+        L = ayarlar.LOCALIZED[ayarlar.DIL]
+        
+        def baglanti_bilgim_ac(e):
+            def kopyala_aksiyon(e2):
+                if ui_bilesenleri.panoya_kopyala(veri.aktif_link): ui_bilesenleri.goster_toast(page, d("Link kopyalandı!", "Link copied!"), True)
+
+            mb_kullanim = veri.bulut_boyutunu_getir()
+            yuzde = (mb_kullanim / 500.0)
+            yuzde_gorsel = yuzde if yuzde > 0.01 else 0.01
+
+            dlg = ft.AlertDialog(title=ft.Text(d("☁️ Bağlantı Bilgilerim", "☁️ Connection Info")), content=ft.Column([
+                ft.Text(d("Mevcut Linkiniz:", "Current Link:")), ft.TextField(value=veri.aktif_link, read_only=True, border_color=ayarlar.TEMA_RENKLER["vurgu_mavi"]),
+                ft.TextButton(d("📋 Kopyala", "📋 Copy"), on_click=kopyala_aksiyon), ft.Divider(), 
+                ft.Text(d("💾 Depolama Alanı (Neon Free Tier)", "💾 Storage (Neon Free Tier)"), weight="bold"),
+                ft.ProgressBar(value=yuzde_gorsel, color=ayarlar.TEMA_RENKLER["basari_yesil"]),
+                ft.Text(d(f"Kullanılan: {mb_kullanim} MB / 500 MB (%{yuzde*100:.2f})", f"Used: {mb_kullanim} MB / 500 MB ({yuzde*100:.2f}%)"), size=13, color=ayarlar.TEMA_RENKLER["metin_ikincil"]),
+                ft.Divider(),
+                ft.Row([
+                    ft.Text("💡", size=16),
+                    ft.Text(d("Depolama Hakkında Bilgi:", "Storage Info:"), weight="bold", size=13, color=ayarlar.TEMA_RENKLER["metin_ana"])
+                ], spacing=5),
+                ft.Text(
+                    d("PostgreSQL sistem dosyaları nedeniyle veritabanı standart olarak ~7.5 MB yer kaplar. Eklediğiniz malzemeler ise sadece birkaç bayttır; binlerce ürün ekleseniz dahi bu kota dolmayacaktır.",
+                      "PostgreSQL occupies ~7.5 MB by default for system files. Your materials take only a few bytes; this quota will not fill up even with thousands of items."),
+                    size=11, color=ayarlar.TEMA_RENKLER["metin_ikincil"]
+                )
+            ], tight=True), bgcolor=ayarlar.TEMA_RENKLER["kart"], actions=[ft.TextButton(d("Kapat", "Close"), on_click=lambda _: ui_bilesenleri.dialog_kapat(page, dlg))])
+            ui_bilesenleri.dialog_ac(page, dlg)
+
+        def baglanti_kes_uyari(e):
+            dlg = ft.AlertDialog(title=ft.Text(L["baglanti_kes"], color=ayarlar.TEMA_RENKLER["tehlike_kirmizi"]),
+                content=ft.Text(d("Bulut bağlantısını kesmek üzeresiniz.\nLinkinizi kopyalayıp güvenli bir yere kaydettiğinizden emin olun!", "About to disconnect from cloud.\nEnsure you saved your link!")), bgcolor=ayarlar.TEMA_RENKLER["kart"],
+                actions=[ft.TextButton(d("İptal", "Cancel"), on_click=lambda _: ui_bilesenleri.dialog_kapat(page, dlg)), ft.TextButton(d("Evet, Kes", "Yes, Disconnect"), icon_color=ayarlar.TEMA_RENKLER["tehlike_kirmizi"], on_click=lambda _: ui_bilesenleri.dialog_kapat(page, dlg) or veri.baglantiyi_kes() or sayfa_degistir("baglanti"))])
+            ui_bilesenleri.dialog_ac(page, dlg)
+
+        def tema_degistir(e):
+            yeni_mod = "light" if page.theme_mode == "dark" else "dark"
+            page.theme_mode = yeni_mod; ayarlar.aktif_tema_degistir(yeni_mod); page.bgcolor = ayarlar.TEMA_RENKLER["arkaplan"]
+            sayfa_degistir(page.aktif_sekme)
+
+        ust_menu = ft.Column(spacing=25, controls=[
+            ft.Text(L["menu"], size=26, weight="bold", color=ayarlar.TEMA_RENKLER["vurgu_mavi"]), ft.Divider(color=ayarlar.TEMA_RENKLER["metin_ikincil"]),
+            ft.TextButton(content=ft.Row([ft.Text("📦", size=22), ft.Text(L["envanter"], size=18, color=ayarlar.TEMA_RENKLER["metin_ana"])]), on_click=lambda e: sayfa_degistir("envanter")),
+            ft.TextButton(content=ft.Row([ft.Text("➕", size=22), ft.Text(L["ekle"], size=18, color=ayarlar.TEMA_RENKLER["metin_ana"])]), on_click=lambda e: sayfa_degistir("ekle")),
+            ft.TextButton(content=ft.Row([ft.Text("📍", size=22), ft.Text(L["konumlar"], size=18, color=ayarlar.TEMA_RENKLER["metin_ana"])]), on_click=lambda e: sayfa_degistir("konumlar")),
+            ft.TextButton(content=ft.Row([ft.Text("🕒", size=22), ft.Text(L["gecmis"], size=18, color=ayarlar.TEMA_RENKLER["metin_ana"])]), on_click=lambda e: sayfa_degistir("gecmis")),
+            ft.TextButton(content=ft.Row([ft.Text("💾", size=22), ft.Text(L["yedekleme"], size=18, color=ayarlar.TEMA_RENKLER["metin_ana"])]), on_click=lambda e: sayfa_degistir("yedekleme"))
+        ])
+
+        orta_butonlar = ft.Row([
+            ft.TextButton(content=ft.Row([ft.Text("⟲", size=20), ft.Text(L['geri_al'], size=16, color=ayarlar.TEMA_RENKLER["vurgu_mavi"])]), on_click=tetik_geri_al),
+            ft.TextButton(content=ft.Row([ft.Text("⟳", size=20), ft.Text(L['ileri_al'], size=16, color=ayarlar.TEMA_RENKLER["vurgu_mavi"])]), on_click=tetik_ileri_al)
+        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+
+        alt_menu = ft.Column(spacing=20, controls=[
+            ft.Divider(color=ayarlar.TEMA_RENKLER["metin_ikincil"]),
+            ft.TextButton(content=ft.Row([ft.Text("🌐", size=22), ft.Text("Dil / Language", size=17, color=ayarlar.TEMA_RENKLER["metin_ikincil"])]), on_click=lambda _: setattr(ayarlar, 'DIL', "EN" if ayarlar.DIL == "TR" else "TR") or sayfa_degistir(page.aktif_sekme)),
+            ft.TextButton(content=ft.Row([ft.Text("🌗", size=22), ft.Text(L["tema_degis"], size=17, color=ayarlar.TEMA_RENKLER["metin_ikincil"])]), on_click=tema_degistir),
+            ft.TextButton(content=ft.Row([ft.Text("ℹ️", size=22), ft.Text(L["baglanti_bilgi"], size=17, color=ayarlar.TEMA_RENKLER["vurgu_mavi"])]), on_click=baglanti_bilgim_ac),
+            ft.TextButton(content=ft.Row([ft.Text("👤", size=22), ft.Text(L["kullanici_degis"], size=17, color=ayarlar.TEMA_RENKLER["metin_ikincil"])]), on_click=lambda e: sayfa_degistir("kullanici")),
+            ft.TextButton(content=ft.Row([ft.Text("🔌", size=22), ft.Text(L["baglanti_kes"], size=17, color=ayarlar.TEMA_RENKLER["tehlike_kirmizi"])]), on_click=baglanti_kes_uyari)
+        ])
+
+        return ft.Container(
+            width=300, 
+            bgcolor=ayarlar.TEMA_RENKLER["kart"], 
+            padding=25, 
+            content=ft.Column(controls=[
+                ust_menu,
+                ft.Container(expand=True),
+                orta_butonlar,
+                ft.Container(height=30),
+                alt_menu
+            ])
         )
 
-    def kullanici_secildi(self, isim):
-        self.kullanici_adi = isim
-        self.login.destroy()
-        self.deiconify() 
-        self.ana_arayuzu_kur() 
-
-    def ana_arayuzu_kur(self):
-        for w in self.winfo_children(): 
-            w.destroy()
-
-        self.title(f"{metinler[self.aktif_dil]['title']} - {self.kullanici_adi}")
-        self.geometry("1200x750")
-        self.configure(fg_color=renkler["arkaplan"])
-        
-        self.grid_rowconfigure(0, weight=1)
-        self.grid_columnconfigure(1, weight=1)
-        
-        self.sol_menu = ctk.CTkFrame(self, width=220, corner_radius=0, fg_color=renkler["menu"])
-        self.sol_menu.grid(row=0, column=0, sticky="nsew")
-        self.sol_menu.grid_rowconfigure(5, weight=1) 
-
-        ctk.CTkLabel(
-            self.sol_menu, text=metinler[self.aktif_dil]["logo"], 
-            font=FontManager.get_font(24, "bold"), text_color=renkler["buton_mavi"]
-        ).grid(row=0, column=0, padx=20, pady=(30, 40))
-        
-        def menu_btn(r, key, sayfa_adi):
-            ctk.CTkButton(
-                self.sol_menu, text=metinler[self.aktif_dil][key], 
-                font=FontManager.get_font(16, "bold"), fg_color="transparent", 
-                text_color=renkler["yazi_ana"], hover_color=renkler["arkaplan"], 
-                height=45, anchor="w", command=lambda: self.sayfa_goster(sayfa_adi)
-            ).grid(row=r, column=0, padx=15, pady=5, sticky="ew")
-        
-        menu_btn(1, "envanter", "EnvanterSayfasi")
-        menu_btn(2, "yeni_ekle", "EkleSayfasi")
-        menu_btn(3, "gecmis", "GecmisSayfasi")
-        menu_btn(4, "yedekleme", "YedeklemeSayfasi")
-        
-        self.sag_icerik = ctk.CTkFrame(self, corner_radius=15, fg_color="transparent")
-        self.sag_icerik.grid(row=0, column=1, padx=25, pady=25, sticky="nsew")
-        self.sag_icerik.grid_rowconfigure(0, weight=1)
-        self.sag_icerik.grid_columnconfigure(0, weight=1)
-        
-        self.sayfalar = {}
-        
-        try:
-            self.sayfalar["EnvanterSayfasi"] = EnvanterSayfasi(self.sag_icerik, self)
-        except Exception as e:
-            print("ENVANTER SAYFASI HATASI:", e)
-            traceback.print_exc()
-            
-        try:
-            self.sayfalar["EkleSayfasi"] = EkleSayfasi(self.sag_icerik, self)
-        except Exception as e:
-            print("EKLE SAYFASI HATASI:", e)
-            
-        try:
-            self.sayfalar["GecmisSayfasi"] = GecmisSayfasi(self.sag_icerik, self)
-        except Exception as e:
-            print("GECMIS SAYFASI HATASI:", e)
-            
-        try:
-            self.sayfalar["YedeklemeSayfasi"] = YedeklemeSayfasi(self.sag_icerik, self)
-        except Exception as e:
-            print("YEDEKLEME SAYFASI HATASI:", e)
-
-        for s in self.sayfalar.values(): 
-            s.grid(row=0, column=0, sticky="nsew")
-        
-        nav_f = ctk.CTkFrame(self.sol_menu, fg_color="transparent")
-        nav_f.grid(row=6, column=0, padx=20, pady=10)
-        
-        self.btn_geri = ctk.CTkButton(
-            nav_f, text="⟲", font=FontManager.get_font(24, "bold"), width=45, height=45, 
-            corner_radius=22, command=self.islemi_geri_al, fg_color="transparent", state="disabled"
-        )
-        self.btn_geri.pack(side="left", padx=5)
-        
-        self.btn_ileri = ctk.CTkButton(
-            nav_f, text="⟳", font=FontManager.get_font(24, "bold"), width=45, height=45, 
-            corner_radius=22, command=self.islemi_ileri_al, fg_color="transparent", state="disabled"
-        )
-        self.btn_ileri.pack(side="left", padx=5)
-
-        ctk.CTkButton(
-            self.sol_menu, text=metinler[self.aktif_dil]["kullanici_degistir"], 
-            font=FontManager.get_font(13), command=self.kullanici_degistir, 
-            fg_color="transparent", text_color=renkler["uyari"]
-        ).grid(row=7, column=0, padx=20, pady=5)
-        
-        ctk.CTkButton(
-            self.sol_menu, text=metinler[self.aktif_dil]["tema_degistir"], 
-            font=FontManager.get_font(13), command=self.tema_degistir, 
-            fg_color="transparent", text_color=renkler["yazi_ana"]
-        ).grid(row=8, column=0, padx=20, pady=5)
-        
-        ctk.CTkButton(
-            self.sol_menu, text=metinler[self.aktif_dil]["dil_sec"], 
-            font=FontManager.get_font(13), command=self.dil_degistir, 
-            fg_color="transparent", text_color=renkler["yazi_ana"]
-        ).grid(row=9, column=0, padx=20, pady=(5, 20))
-
-        if "EnvanterSayfasi" in self.sayfalar:
-            self.sayfa_goster("EnvanterSayfasi")
-
-    def kullanici_degistir(self):
-        self.islem_gecmisi.clear()
-        self.ileri_gecmisi.clear()
-        self.login_ekrani_goster()
-
-    def gui_guncelle(self):
-        self.btn_geri.configure(
-            state="normal" if self.islem_gecmisi else "disabled", 
-            fg_color=renkler["buton_mavi"] if self.islem_gecmisi else "transparent",
-            text_color="#FFFFFF" if self.islem_gecmisi else renkler["yazi_ikincil"]
-        )
-        self.btn_ileri.configure(
-            state="normal" if self.ileri_gecmisi else "disabled", 
-            fg_color="#8B5CF6" if self.ileri_gecmisi else "transparent",
-            text_color="#FFFFFF" if self.ileri_gecmisi else renkler["yazi_ikincil"]
-        )
-        if "EnvanterSayfasi" in self.sayfalar:
-            self.sayfa_goster("EnvanterSayfasi")
-
-    def sayfa_goster(self, sayfa_adi):
-        if sayfa_adi not in self.sayfalar:
-            print(f"HATA: {sayfa_adi} Yuklenemedigi Icin Acilamiyor!")
-            return
-            
-        sayfa = self.sayfalar[sayfa_adi]
-        if sayfa_adi == "EnvanterSayfasi": 
-            sayfa.envanter_kartlarini_ciz()
-        elif sayfa_adi == "GecmisSayfasi": 
-            sayfa.gecmisi_yenile()
-        sayfa.tkraise()
-
-    def islemi_geri_al(self):
-        if not self.islem_gecmisi: return
-        islem = self.islem_gecmisi.pop() 
-        self.db.gecmis_sil(islem.log_id)
-        
-        if islem.tip == "ekleme": 
-            self.db.malzeme_sil(islem.malzeme_id)
-        elif islem.tip == "silme": 
-            self.db.malzeme_geri_yukle(islem.eski_malzeme)
-        elif islem.tip == "guncelleme": 
-            self.db.stok_guncelle(islem.eski_malzeme)
-            
-        self.ileri_gecmisi.append(islem) 
-        self.gui_guncelle()
-
-    def islemi_ileri_al(self):
-        if not self.ileri_gecmisi: return
-        islem = self.ileri_gecmisi.pop()
-        dil = self.aktif_dil
-        
-        if islem.tip == "ekleme":
-            self.db.malzeme_geri_yukle(islem.yeni_malzeme)
-            m = islem.yeni_malzeme
-            sm = stok_metni_olustur(m.miktar, m.birim, m.ikinci_miktar, m.ikinci_birim, m.ucuncu_miktar, m.ucuncu_birim, m.dorduncu_miktar, m.dorduncu_birim, m.besinci_miktar, m.besinci_birim, dil)
-            tx = f"{metinler[dil]['log_eklendi']} ({metinler[dil]['log_miktar']}: {sm})"
-            islem.log_id = self.db.gecmis_ekle(islem.malzeme_id, islem.malzeme_isim, tx, self.kullanici_adi)
-        elif islem.tip == "silme":
-            self.db.malzeme_sil(islem.malzeme_id)
-            m = islem.eski_malzeme
-            sm = stok_metni_olustur(m.miktar, m.birim, m.ikinci_miktar, m.ikinci_birim, m.ucuncu_miktar, m.ucuncu_birim, m.dorduncu_miktar, m.dorduncu_birim, m.besinci_miktar, m.besinci_birim, dil)
-            tx = f"{metinler[dil]['log_silindi']} ({metinler[dil]['log_stok']}: {sm})"
-            islem.log_id = self.db.gecmis_ekle(islem.malzeme_id, islem.malzeme_isim, tx, self.kullanici_adi)
-        elif islem.tip == "guncelleme":
-            self.db.stok_guncelle(islem.yeni_malzeme)
-            islem.log_id = self.db.gecmis_ekle(islem.malzeme_id, islem.malzeme_isim, metinler[dil]['log_guncellendi'], self.kullanici_adi)
-            
-        self.islem_gecmisi.append(islem)
-        self.gui_guncelle()
-
-    def tema_degistir(self):
-        self.aktif_tema = "light" if self.aktif_tema == "dark" else "dark"
-        ctk.set_appearance_mode(self.aktif_tema)
-
-    def dil_degistir(self):
-        self.aktif_dil = "EN" if self.aktif_dil == "TR" else "TR"
-        self.ana_arayuzu_kur()
+    son_kayitli_link = veri.son_linki_getir()
+    if son_kayitli_link and veri.baglanti_kur(son_kayitli_link)[0]: sayfa_degistir("kullanici")
+    else: sayfa_degistir("baglanti")
 
 if __name__ == "__main__":
-    app_db = DatabaseManager()
-    uygulama = EnvanterUygulamasi(app_db)
-    uygulama.mainloop()
+    ft.run(main)

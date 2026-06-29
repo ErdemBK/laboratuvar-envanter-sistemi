@@ -1,76 +1,53 @@
-import customtkinter as ctk
-from ayarlar import metinler, renkler
-from ui_bilesenleri import FontManager
+# sayfa_gecmis.py
+import flet as ft
+import ayarlar
+import ui_bilesenleri
+import veri
+import datetime
+import os
 
-class GecmisSayfasi(ctk.CTkFrame):
-    def __init__(self, master, app):
-        super().__init__(master, fg_color="transparent")
-        self.app = app
-        self.db = app.db
-        self.kur()
+def gecmis_gorunumu(page: ft.Page):
+    d = ayarlar.dil
+    def islem_etiketi(islem_tipi):
+        renk = ayarlar.TEMA_RENKLER["basari_yesil"] if islem_tipi == "Eklendi" or islem_tipi == "Added" else (ayarlar.TEMA_RENKLER["tehlike_kirmizi"] if islem_tipi == "Silindi" or islem_tipi == "Deleted" else ayarlar.TEMA_RENKLER["vurgu_mavi"])
+        return ft.Container(bgcolor=renk, padding=6, border_radius=5, content=ft.Text(islem_tipi, color="#FFFFFF", size=11, weight="bold"))
 
-    def kur(self):
-        ust_frame = ctk.CTkFrame(self, fg_color="transparent")
-        ust_frame.pack(fill="x", padx=10, pady=(0, 15))
-        
-        ctk.CTkLabel(
-            ust_frame, text=metinler[self.app.aktif_dil]["gecmis"], 
-            font=FontManager.get_font(26, "bold"), text_color=renkler["yazi_ana"]
-        ).pack(side="left", padx=10)
-        
-        ctk.CTkButton(
-            ust_frame, text=metinler[self.app.aktif_dil]["gecmisi_disa_aktar"], 
-            font=FontManager.get_font(14, "bold"), fg_color=renkler["basari"], 
-            height=35, command=self.gecmis_export
-        ).pack(side="right", padx=10)
+    def gecmisi_indir(e):
+        bugun = datetime.datetime.now().strftime("%Y_%m_%d")
+        yol = ui_bilesenleri.dosya_kaydet_dialog(d("Geçmişi Kaydet", "Save Log"), f"lab_gecmis_{bugun}.csv", ".csv")
+        if yol:
+            with open(yol, "w", encoding="utf-8-sig") as f:
+                f.write("Islem;Tarih;Kullanici;Detay\n")
+                for log in veri.GECMIS: f.write(f"{log['islem']};{log['tarih']};{log['kullanici']};{log['detay']}\n")
+            ui_bilesenleri.goster_toast(page, d("Kaydedildi!", "Saved!"), True)
 
-        self.liste_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
-        self.liste_frame.pack(fill="both", expand=True, padx=5)
-        
-        self.gecmisi_yenile()
+    def gecmisi_temizle(e):
+        def onayla(e2):
+            veri.anim_kaydet(); veri.GECMIS.clear(); veri.verileri_kaydet()
+            ui_bilesenleri.dialog_kapat(page, dlg); listeyi_yenile(); ui_bilesenleri.goster_toast(page, d("Temizlendi!", "Cleared!"), True)
 
-    def gecmisi_yenile(self):
-        for w in self.liste_frame.winfo_children():
-            w.destroy()
-            
-        kayitlar = self.db.gecmisi_getir()
-        dil = self.app.aktif_dil
-        
-        if not kayitlar:
-            ctk.CTkLabel(
-                self.liste_frame, text=metinler[dil]["islem_yok"], 
-                font=FontManager.get_font(16), text_color=renkler["yazi_ikincil"]
-            ).pack(pady=40)
-            return
-            
-        for k in kayitlar:
-            f = ctk.CTkFrame(self.liste_frame, fg_color=renkler["kart"], corner_radius=8)
-            f.pack(fill="x", pady=4, padx=5)
-            
-            tarih = k['tarih'][:16]
-            metin = f"[{tarih}] 👤 {k['kullanici']} : '{k['malzeme_isim']}' -> {k['detay']}"
-            
-            ctk.CTkLabel(
-                f, text=metin, font=FontManager.get_font(14), 
-                text_color=renkler["yazi_ana"], anchor="w", justify="left"
-            ).pack(fill="x", padx=15, pady=12)
+        dlg = ft.AlertDialog(title=ft.Text(d("Emin Misiniz?", "Are you sure?"), color=ayarlar.TEMA_RENKLER["tehlike_kirmizi"]), content=ft.Text(d("Geçmiş silinecektir.", "Logs will be deleted.")), bgcolor=ayarlar.TEMA_RENKLER["kart"],
+            actions=[ft.TextButton(d("İptal", "Cancel"), on_click=lambda _: ui_bilesenleri.dialog_kapat(page, dlg)), ft.TextButton(d("Sil", "Delete"), icon_color=ayarlar.TEMA_RENKLER["tehlike_kirmizi"], on_click=onayla)])
+        ui_bilesenleri.dialog_ac(page, dlg)
 
-    def gecmis_export(self):
-        import csv
-        from tkinter import filedialog
-        from ui_bilesenleri import OzelBilgiKutusu
-        
-        y = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("Excel CSV", "*.csv")])
-        if not y: 
-            return
-            
-        try:
-            with open(y, 'w', newline='', encoding='utf-8-sig') as f:
-                wr = csv.writer(f, delimiter=';')
-                wr.writerow(["ID", "Tarih", "Kullanıcı", "Malzeme", "İşlem Detayı"])
-                for k in self.db.gecmisi_getir():
-                    wr.writerow([k['id'], k['tarih'], k['kullanici'], k['malzeme_isim'], k['detay']])
-                    
-            OzelBilgiKutusu(self.winfo_toplevel(), "Başarılı", "Geçmiş dışa aktarıldı.", renk=renkler["basari"])
-        except Exception as e:
-            OzelBilgiKutusu(self.winfo_toplevel(), "Hata", str(e), renk=renkler["tehlike"])
+    uyari_kutusu = ft.Container(bgcolor=ayarlar.TEMA_RENKLER["uyari_sari"] + "20", padding=15, border_radius=10, content=ft.Row([
+        ft.Text("⚠️", size=24), 
+        # TR ve EN metinleri bulut veritabanı boşaltma durumuna uyarlandı
+        ft.Text(d("Bulut veritabanında yer açmak ve performansı artırmak için geçmişinizi ayda 1 kez indirip temizleyin.", "To free up space in the cloud database and improve performance, download and clear logs monthly."), expand=True),
+        ft.ElevatedButton(d("⬇️ İndir", "⬇️ Download"), bgcolor=ayarlar.TEMA_RENKLER["vurgu_mavi"], color="#FFFFFF", on_click=gecmisi_indir),
+        ft.ElevatedButton(d("🗑️ Temizle", "🗑️ Clear"), bgcolor=ayarlar.TEMA_RENKLER["tehlike_kirmizi"], color="#FFFFFF", on_click=gecmisi_temizle)
+    ]))
+    liste_alani = ft.ListView(expand=True, spacing=10, padding=10)
+    
+    def listeyi_yenile():
+        liste_alani.controls.clear()
+        for log in veri.GECMIS:
+            liste_alani.controls.append(ft.Container(bgcolor=ayarlar.TEMA_RENKLER["kart"], padding=10, border_radius=8, content=ft.Row([
+                islem_etiketi(log["islem"]), ft.Text(log["tarih"], color=ayarlar.TEMA_RENKLER["metin_ikincil"], size=12),
+                ft.Text(log["kullanici"], color=ayarlar.TEMA_RENKLER["vurgu_mavi"], size=14, weight="bold"),
+                ft.Text(log["detay"], color=ayarlar.TEMA_RENKLER["metin_ana"], size=14, expand=True, no_wrap=True, overflow="ellipsis")
+            ])))
+        page.update()
+
+    listeyi_yenile()
+    return ft.Column([ft.Text(d("🕒 İşlem Geçmişi", "🕒 Transaction Logs"), size=30, weight="bold", color=ayarlar.TEMA_RENKLER["metin_ana"]), ft.Divider(color=ayarlar.TEMA_RENKLER["kart"], height=10), uyari_kutusu, ft.Divider(color=ayarlar.TEMA_RENKLER["kart"], height=10), liste_alani], expand=True)

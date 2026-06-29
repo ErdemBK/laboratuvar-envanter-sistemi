@@ -1,280 +1,171 @@
-import customtkinter as ctk
-from tkinter import filedialog
-import csv
-from modeller import Malzeme, IslemTipi, stok_metni_olustur, miktar_dogrula, UndoIslemi
-from ayarlar import metinler, renkler
-from ui_bilesenleri import FontManager, OzelOnayKutusu, OzelBilgiKutusu
+# sayfa_envanter.py
+import flet as ft
+import ayarlar
+import ui_bilesenleri
+import veri
+import datetime
 
-class EnvanterSayfasi(ctk.CTkFrame):
-    def __init__(self, master, app):
-        super().__init__(master, fg_color="transparent")
-        self.app = app
-        self.db = app.db
-        self.kur()
+def envanter_gorunumu(page: ft.Page):
+    L = ayarlar.LOCALIZED[ayarlar.DIL]
+    
+    def arama_yapildi(e): listeyi_yenile(arama_metni=e.control.value)
 
-    def kur(self):
-        ust_frame = ctk.CTkFrame(self, fg_color="transparent")
-        ust_frame.pack(fill="x", padx=10, pady=(0, 15))
-        
-        dash_frame = ctk.CTkFrame(ust_frame, fg_color=renkler["buton_mavi"], corner_radius=10)
-        dash_frame.pack(side="left", fill="y", ipadx=15, ipady=5)
-        
-        self.lbl_ist = ctk.CTkLabel(
-            dash_frame, 
-            text=metinler[self.app.aktif_dil]["yukleniyor"], 
-            font=FontManager.get_font(15, "bold"), 
-            text_color="#FFFFFF"
+    arama_kutusu = ft.TextField(label=L["arama_label"], border_color=ayarlar.TEMA_RENKLER["vurgu_mavi"], on_change=arama_yapildi)
+    sonuc_yok_alani = ft.Container(content=ft.Text(L["sonuc_yok"], size=25, color=ayarlar.TEMA_RENKLER["metin_ikincil"]), visible=False)
+    liste_alani = ft.ListView(expand=True, spacing=10, padding=10)
+
+    def excel_indir_fiziksel(e):
+        bugun = datetime.datetime.now().strftime("%Y_%m_%d")
+        yol = ui_bilesenleri.dosya_kaydet_dialog(
+            "Excel (CSV) Nereye Kaydedilsin?" if ayarlar.DIL == "TR" else "Save CSV As", 
+            f"lab_envanter_{bugun}.csv", ".csv"
         )
-        self.lbl_ist.pack(expand=True)
-        
-        self.arama_deg = ctk.StringVar()
-        e_ara = ctk.CTkEntry(
-            ust_frame, 
-            textvariable=self.arama_deg, 
-            placeholder_text=metinler[self.app.aktif_dil]["arama"], 
-            width=300, 
-            height=35,
-            font=FontManager.get_font(14)
-        )
-        e_ara.pack(side="left", padx=(20, 10))
-        self.arama_deg.trace_add("write", lambda *args: self.envanter_kartlarini_ciz())
-        
-        ctk.CTkButton(
-            ust_frame, 
-            text=metinler[self.app.aktif_dil]["disa_aktar"], 
-            font=FontManager.get_font(14, "bold"),
-            fg_color=renkler["basari"], 
-            height=35, 
-            command=self.excel_disa_aktar
-        ).pack(side="right")
-        
-        self.liste_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
-        self.liste_frame.pack(fill="both", expand=True, padx=5)
-        
-        self.envanter_kartlarini_ciz()
+        if yol:
+            with open(yol, "w", encoding="utf-8-sig") as f:
+                f.write("ID;Konum;Malzeme Adi;Miktarlar;Notlar\n")
+                sirali_malzemeler = sorted(veri.MALZEMELER, key=lambda x: str(x.get('konum', '')).lower())
+                for m in sirali_malzemeler:
+                    miks = ", ".join([f"{k['deger']} {k['birim']}" for k in m.get('miktarlar', [])])
+                    notlar = m.get('notlar', '').replace('\n', ' ')
+                    f.write(f"{m['id']};{m['konum']};{m['isim']};{miks};{notlar}\n")
+            ui_bilesenleri.goster_toast(page, "Excel Başarıyla Kaydedildi!" if ayarlar.DIL == "TR" else "Excel Saved!", True)
 
-    def envanter_kartlarini_ciz(self):
-        for w in self.liste_frame.winfo_children(): 
-            w.destroy()
+    def notu_goster(e):
+        malzeme = e.control.data
+        dlg = ft.AlertDialog(title=ft.Text(f"📝 {malzeme['isim']}"), content=ft.Text(malzeme['notlar']), bgcolor=ayarlar.TEMA_RENKLER["kart"])
+        ui_bilesenleri.dialog_ac(page, dlg)
+
+    def gelismis_guncelle(e):
+        m = e.control.data
+        isim_edt = ft.TextField(label="Malzeme Adı" if ayarlar.DIL == "TR" else "Material Name", value=m["isim"], border_color=ayarlar.TEMA_RENKLER["vurgu_mavi"])
+        konum_edt = ft.Dropdown(label="Konum" if ayarlar.DIL == "TR" else "Location", value=m["konum"], options=[ft.dropdown.Option(k) for k in veri.KONUMLAR] + [ft.dropdown.Option("Yer Belirtilmiyor")])
+        not_edt = ft.TextField(label="Notlar" if ayarlar.DIL == "TR" else "Notes", value=m["notlar"], multiline=True)
+        
+        satirlar_box = ft.Column(spacing=5)
+        BIRIMLER = ["Adet", "Litre", "ml", "Kg", "Gram", "mg", "Kutu", "Koli", "Paket", "Rulo", "Şişe"]
+
+        def miktar_satiri_ekle(deger="", birim="Adet"):
+            s = ft.Row([
+                ft.TextField(label="Miktar" if ayarlar.DIL == "TR" else "Qty", value=deger, width=120),
+                ft.Dropdown(value=birim, options=[ft.dropdown.Option(b) for b in BIRIMLER], width=120)
+            ])
+            satirlar_box.controls.append(s)
+
+        for miktar in m["miktarlar"]: miktar_satiri_ekle(miktar["deger"], miktar["birim"])
+
+        def yeni_satir_tetik(_):
+            if len(satirlar_box.controls) < 5: miktar_satiri_ekle(); page.update()
+            else: ui_bilesenleri.goster_toast(page, "Maksimum 5 miktar sınırı!" if ayarlar.DIL == "TR" else "Max 5 quantity limits!", False)
+
+        def kaydet_aksiyon(_):
+            veri.anim_kaydet()
             
-        gs = self.db.malzemeleri_getir(self.arama_deg.get().strip())
-        dil = self.app.aktif_dil
+            # Değişiklik analizi için eski değerleri koru
+            eski_isim = m["isim"]
+            eski_konum = m["konum"]
+            eski_notlar = m["notlar"]
+            eski_miktarlar_str = ", ".join([f"{k['deger']} {k['birim']}" for k in m.get('miktarlar', [])])
+            
+            # Yeni değerleri formdan topla
+            yeni_isim = isim_edt.value
+            yeni_konum = konum_edt.value if konum_edt.value else "Yer Belirtilmiyor"
+            yeni_notlar = not_edt.value
+            
+            yeni_mik = []
+            for c in satirlar_box.controls:
+                if c.controls[0].value: 
+                    yeni_mik.append({"deger": c.controls[0].value, "birim": c.controls[1].value})
+            yeni_miktarlar_str = ", ".join([f"{k['deger']} {k['birim']}" for k in yeni_mik])
+            
+            # Değişen alanları tespit et ve detaylı mesaj oluştur
+            degisimler = []
+            if eski_isim != yeni_isim:
+                degisimler.append(f"İsim: '{eski_isim}' -> '{yeni_isim}'" if ayarlar.DIL == "TR" else f"Name: '{eski_isim}' -> '{yeni_isim}'")
+            if eski_konum != yeni_konum:
+                degisimler.append(f"Konum: '{eski_konum}' -> '{yeni_konum}'" if ayarlar.DIL == "TR" else f"Location: '{eski_konum}' -> '{yeni_konum}'")
+            if eski_notlar != yeni_notlar:
+                degisimler.append("Notlar güncellendi" if ayarlar.DIL == "TR" else "Notes updated")
+            if eski_miktarlar_str != yeni_miktarlar_str:
+                eski_yaz = eski_miktarlar_str if eski_miktarlar_str else "0"
+                yeni_yaz = yeni_miktarlar_str if yeni_miktarlar_str else "0"
+                degisimler.append(f"Miktar: [{eski_yaz}] -> [{yeni_yaz}]" if ayarlar.DIL == "TR" else f"Qty: [{eski_yaz}] -> [{yeni_yaz}]")
+            
+            # Eğer hiçbir şey değişmediyse loglama yapma
+            if degisimler:
+                detay_metni = f"'{eski_isim}' - " + " | ".join(degisimler)
+                zaman = datetime.datetime.now().strftime("%d.%m.%Y - %H:%M")
+                islem_adi = "Güncellendi" if ayarlar.DIL == "TR" else "Updated"
+                veri.GECMIS.insert(0, {"islem": islem_adi, "tarih": zaman, "kullanici": veri.aktif_kullanici, "detay": detay_metni})
+            
+            # Gerçek verileri güncelle
+            m["isim"] = yeni_isim
+            m["konum"] = yeni_konum
+            m["notlar"] = yeni_notlar
+            m["miktarlar"] = yeni_mik
+            
+            veri.verileri_kaydet()
+            ui_bilesenleri.dialog_kapat(page, dlg_edt); listeyi_yenile()
+            ui_bilesenleri.goster_toast(page, "Güncellendi!" if ayarlar.DIL == "TR" else "Updated!", True)
+
+        dlg_edt = ft.AlertDialog(
+            title=ft.Text(f"✏️ {m['isim']}"),
+            content=ft.Column([
+                isim_edt, konum_edt, not_edt,
+                ft.Row([ft.Text("Miktarlar" if ayarlar.DIL == "TR" else "Quantities"), ft.TextButton("➕ Satır Ekle" if ayarlar.DIL == "TR" else "➕ Add Row", on_click=yeni_satir_tetik)]),
+                satirlar_box
+            ], tight=True, scroll=ft.ScrollMode.AUTO, height=450),
+            bgcolor=ayarlar.TEMA_RENKLER["kart"],
+            actions=[
+                ft.TextButton("İptal" if ayarlar.DIL == "TR" else "Cancel", on_click=lambda _: ui_bilesenleri.dialog_kapat(page, dlg_edt)),
+                ft.ElevatedButton("Kaydet" if ayarlar.DIL == "TR" else "Save", color="#FFFFFF", bgcolor=ayarlar.TEMA_RENKLER["basari_yesil"], on_click=kaydet_aksiyon)
+            ]
+        )
+        ui_bilesenleri.dialog_ac(page, dlg_edt)
+
+    def sil(e):
+        malzeme = e.control.data
+        def onayla(e2):
+            veri.anim_kaydet()
+            veri.MALZEMELER.remove(malzeme)
+            zaman = datetime.datetime.now().strftime("%d.%m.%Y - %H:%M")
+            veri.GECMIS.insert(0, {"islem": "Silindi" if ayarlar.DIL == "TR" else "Deleted", "tarih": zaman, "kullanici": veri.aktif_kullanici, "detay": f"'{malzeme['isim']}' silindi." if ayarlar.DIL == "TR" else f"'{malzeme['isim']}' deleted."})
+            veri.verileri_kaydet()
+            ui_bilesenleri.dialog_kapat(page, dlg); listeyi_yenile(arama_kutusu.value)
+            ui_bilesenleri.goster_toast(page, "Silindi!" if ayarlar.DIL == "TR" else "Deleted!", False)
+            
+        dlg = ft.AlertDialog(title=ft.Text("Emin Misiniz?" if ayarlar.DIL == "TR" else "Are you sure?"), content=ft.Text(f"'{malzeme['isim']}' silinecek." if ayarlar.DIL == "TR" else f"'{malzeme['isim']}' will be deleted."), bgcolor=ayarlar.TEMA_RENKLER["kart"],
+            actions=[ft.TextButton("İptal" if ayarlar.DIL == "TR" else "Cancel", on_click=lambda _: ui_bilesenleri.dialog_kapat(page, dlg)), ft.TextButton("Evet, Sil" if ayarlar.DIL == "TR" else "Yes, Delete", on_click=onayla, icon_color=ayarlar.TEMA_RENKLER["tehlike_kirmizi"])])
+        ui_bilesenleri.dialog_ac(page, dlg)
+
+    def listeyi_yenile(arama_metni=""):
+        liste_alani.controls.clear()
+        arama_metni = arama_metni.lower() if arama_metni else ""
+        eslesenler = [m for m in veri.MALZEMELER if arama_metni in m["isim"].lower() or arama_metni in m["konum"].lower()]
         
-        self.lbl_ist.configure(text=f"{metinler[dil]['toplam']}\n{len(gs)} Adet")
+        eslesenler = sorted(eslesenler, key=lambda x: str(x['isim']).lower())
         
-        if not gs: 
-            ctk.CTkLabel(
-                self.liste_frame, 
-                text=metinler[dil]["bulunamadi"], 
-                font=FontManager.get_font(16),
-                text_color=renkler["yazi_ikincil"]
-            ).pack(pady=40)
+        if not eslesenler: sonuc_yok_alani.visible = True
         else:
-            for m in gs:
-                k = ctk.CTkFrame(self.liste_frame, corner_radius=12, fg_color=renkler["kart"])
-                k.pack(fill="x", pady=8, padx=5)
-                k.grid_columnconfigure(0, weight=1)
-                k.grid_columnconfigure(1, weight=1)
-                k.grid_columnconfigure(2, weight=0)
-                
-                isim_frame = ctk.CTkFrame(k, fg_color="transparent")
-                isim_frame.grid(row=0, column=0, padx=20, pady=15, sticky="w")
-                
-                ctk.CTkLabel(
-                    isim_frame, 
-                    text=m.get('isim', ''), 
-                    font=FontManager.get_font(20, "bold"),
-                    text_color=renkler["yazi_ana"]
-                ).pack(anchor="w")
-                
-                if m.get('lokasyon', ''): 
-                    ctk.CTkLabel(
-                        isim_frame, 
-                        text=f"📍 {m['lokasyon']}", 
-                        font=FontManager.get_font(13), 
-                        text_color=renkler["yazi_ikincil"]
-                    ).pack(anchor="w")
-                    
-                if m.get('notlar', ''):
-                    # SİSTEMİ ÇÖKTÜREN HATA BURADAYDI! slant="italic" olarak düzeltildi.
-                    ctk.CTkLabel(
-                        isim_frame, 
-                        text=f"📝 {m['notlar']}", 
-                        font=FontManager.get_font(13, slant="italic"), 
-                        text_color=renkler["uyari"]
-                    ).pack(anchor="w", pady=(4, 0))
-                
-                stok_frame = ctk.CTkFrame(k, fg_color="transparent")
-                stok_frame.grid(row=0, column=1, padx=20, sticky="w")
-                
-                sm = stok_metni_olustur(
-                    m.get('miktar', 0.0), m.get('birim', ''), 
-                    m.get('ikinci_miktar', 0.0), m.get('ikinci_birim', ''), 
-                    m.get('ucuncu_miktar', 0.0), m.get('ucuncu_birim', ''), 
-                    m.get('dorduncu_miktar', 0.0), m.get('dorduncu_birim', ''), 
-                    m.get('besinci_miktar', 0.0), m.get('besinci_birim', ''), 
-                    aktif_dil=dil
+            sonuc_yok_alani.visible = False
+            for m in eslesenler:
+                rozetler = ft.Row(spacing=5)
+                for miktar in m["miktarlar"]: rozetler.controls.append(ft.Container(bgcolor=ayarlar.TEMA_RENKLER["basari_yesil"], padding=8, border_radius=15, content=ft.Text(f"{miktar['deger']} {miktar['birim']}", color="#FFFFFF", weight="bold", size=13)))
+
+                kart = ft.Container(
+                    bgcolor=ayarlar.TEMA_RENKLER["kart"], padding=15, border_radius=10,
+                    content=ft.Row([
+                        ft.Column([ft.Text(m["isim"], color=ayarlar.TEMA_RENKLER["metin_ana"], size=16, weight="bold", no_wrap=True, overflow="ellipsis"), ft.Text(m["konum"], color=ayarlar.TEMA_RENKLER["uyari_sari"] if m["konum"] != "Yer Belirtilmiyor" else ayarlar.TEMA_RENKLER["metin_ikincil"], size=12, no_wrap=True, overflow="ellipsis")], expand=True),
+                        rozetler,
+                        ft.ElevatedButton("📝 Notlar" if ayarlar.DIL == "TR" else "📝 Notes", bgcolor=ayarlar.TEMA_RENKLER["uyari_sari"], color="black", data=m, on_click=notu_goster, visible=bool(m["notlar"])),
+                        ft.TextButton("✏️", tooltip="Güncelle" if ayarlar.DIL == "TR" else "Update", data=m, on_click=gelismis_guncelle),
+                        ft.TextButton("🗑️", data=m, on_click=sil)
+                    ], alignment="spaceBetween", vertical_alignment="center")
                 )
-                
-                if sm == "0":
-                    badge = ctk.CTkFrame(stok_frame, fg_color=renkler["tehlike"], corner_radius=6)
-                    badge.pack(side="left", padx=2)
-                    ctk.CTkLabel(badge, text="0", font=FontManager.get_font(14, "bold"), text_color="#FFFFFF").pack(padx=10, pady=2)
-                else:
-                    for p in sm.split("  •  "):
-                        badge = ctk.CTkFrame(stok_frame, fg_color=renkler["basari"], corner_radius=6)
-                        badge.pack(side="left", padx=3)
-                        ctk.CTkLabel(badge, text=p.strip(), font=FontManager.get_font(14, "bold"), text_color="#FFFFFF").pack(padx=10, pady=2)
+                liste_alani.controls.append(kart)
+        page.update()
 
-                bf = ctk.CTkFrame(k, fg_color="transparent")
-                bf.grid(row=0, column=2, padx=20, sticky="e")
-                
-                ctk.CTkButton(
-                    bf, 
-                    text=metinler[dil]["guncelle"], 
-                    width=90, 
-                    font=FontManager.get_font(14, "bold"),
-                    command=lambda x=m['id']: self.stok_guncelle_penceresi(x)
-                ).pack(side="left", padx=5)
-                
-                ctk.CTkButton(
-                    bf, 
-                    text=metinler[dil]["sil"], 
-                    width=70, 
-                    font=FontManager.get_font(14, "bold"),
-                    fg_color=renkler["tehlike"], 
-                    command=lambda x=m['id']: self.malzeme_sil_onay(x)
-                ).pack(side="left", padx=5)
-
-    def excel_disa_aktar(self):
-        y = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("Excel CSV", "*.csv")])
-        if not y: return
-        try:
-            dil = self.app.aktif_dil
-            with open(y, 'w', newline='', encoding='utf-8-sig') as f:
-                wr = csv.writer(f, delimiter=';')
-                
-                # İki noktalı "Özel Notlar:" yerine sade Excel başlığı kullandık
-                notlar_baslik = "Notlar" if dil == "TR" else "Notes"
-                
-                wr.writerow([
-                    metinler[dil]["excel_isim"], 
-                    metinler[dil]["excel_miktar"], 
-                    metinler[dil]["excel_lok"], 
-                    notlar_baslik
-                ])
-                for m in self.db.malzemeleri_getir():
-                    d = stok_metni_olustur(
-                        m.get('miktar', 0.0), m.get('birim', ''), 
-                        m.get('ikinci_miktar', 0.0), m.get('ikinci_birim', ''), 
-                        m.get('ucuncu_miktar', 0.0), m.get('ucuncu_birim', ''), 
-                        m.get('dorduncu_miktar', 0.0), m.get('dorduncu_birim', ''), 
-                        m.get('besinci_miktar', 0.0), m.get('besinci_birim', ''), 
-                        dil
-                    )
-                    wr.writerow([m.get('isim', ''), d, m.get('lokasyon', ''), m.get('notlar', '')])
-                    
-            OzelBilgiKutusu(self.winfo_toplevel(), "Başarılı", "Excel başarıyla oluşturuldu.", renk=renkler["basari"])
-        except Exception as e: 
-            OzelBilgiKutusu(self.winfo_toplevel(), "Hata", str(e), renk=renkler["tehlike"])
-
-    def stok_guncelle_penceresi(self, mid):
-        em = self.db.malzeme_getir_id(mid)
-        if not em: return
-        
-        p = ctk.CTkToplevel(self)
-        p.title(metinler[self.app.aktif_dil]["guncelle"])
-        p.geometry("450x650")
-        p.attributes("-topmost", True)
-        p.grab_set()
-        p.configure(fg_color=renkler["arkaplan"])
-        
-        ctk.CTkLabel(
-            p, 
-            text=f"{em.isim} {metinler[self.app.aktif_dil]['guncelle']}", 
-            font=FontManager.get_font(18, "bold"),
-            text_color=renkler["yazi_ana"]
-        ).pack(pady=10)
-        
-        e_l = ctk.CTkEntry(p, width=410, font=FontManager.get_font(14))
-        e_l.insert(0, em.lokasyon)
-        e_l.pack(padx=20, pady=10)
-        
-        brs = metinler[self.app.aktif_dil]["birimler"]
-        
-        def satir(txt, mv, bv):
-            f = ctk.CTkFrame(p, fg_color="transparent")
-            f.pack(padx=20, pady=5, fill="x")
-            
-            ctk.CTkLabel(
-                f, text=txt, width=100, anchor="w", 
-                font=FontManager.get_font(14), text_color=renkler["yazi_ana"]
-            ).pack(side="left")
-            
-            e = ctk.CTkEntry(f, width=100, font=FontManager.get_font(14))
-            e.insert(0, str(mv))
-            e.pack(side="left", padx=10)
-            
-            c = ctk.CTkComboBox(f, values=brs, width=120, font=FontManager.get_font(14))
-            c.set(bv)
-            c.pack(side="left")
-            
-            return e, c
-            
-        e1, c1 = satir(metinler[self.app.aktif_dil]["ana_miktar"], em.miktar, em.birim)
-        e2, c2 = satir(metinler[self.app.aktif_dil]["ek_miktar_2"], em.ikinci_miktar, em.ikinci_birim)
-        e3, c3 = satir(metinler[self.app.aktif_dil]["ek_miktar_3"], em.ucuncu_miktar, em.ucuncu_birim)
-        e4, c4 = satir(metinler[self.app.aktif_dil]["ek_miktar_4"], em.dorduncu_miktar, em.dorduncu_birim)
-        e5, c5 = satir(metinler[self.app.aktif_dil]["ek_miktar_5"], em.besinci_miktar, em.besinci_birim)
-        
-        t_n = ctk.CTkTextbox(p, width=410, height=60, font=FontManager.get_font(14))
-        t_n.insert("1.0", em.notlar if em.notlar else "")
-        t_n.pack(padx=20, pady=10)
-        
-        def kaydet():
-            try:
-                ym = Malzeme(
-                    id=mid, isim=em.isim, 
-                    miktar=miktar_dogrula(e1.get()), birim=c1.get(), 
-                    ikinci_miktar=miktar_dogrula(e2.get()), ikinci_birim=c2.get(), 
-                    ucuncu_miktar=miktar_dogrula(e3.get()), ucuncu_birim=c3.get(), 
-                    dorduncu_miktar=miktar_dogrula(e4.get()), dorduncu_birim=c4.get(), 
-                    besinci_miktar=miktar_dogrula(e5.get()), besinci_birim=c5.get(), 
-                    lokasyon=e_l.get(), notlar=t_n.get("1.0", "end-1c")
-                )
-                self.db.stok_guncelle(ym)
-                lid = self.db.gecmis_ekle(mid, em.isim, metinler[self.app.aktif_dil]["log_guncellendi"], self.app.kullanici_adi)
-                self.app.islem_gecmisi.append(UndoIslemi(tip="guncelleme", malzeme_id=mid, malzeme_isim=em.isim, log_id=lid, eski_malzeme=em, yeni_malzeme=ym))
-                
-                p.destroy()
-                self.app.gui_guncelle()
-            except ValueError as e:
-                OzelBilgiKutusu(p, "Hata", str(e), renk=renkler["tehlike"])
-                
-        ctk.CTkButton(
-            p, 
-            text=metinler[self.app.aktif_dil]["kaydet"], 
-            font=FontManager.get_font(14, "bold"),
-            fg_color=renkler["basari"], 
-            command=kaydet
-        ).pack(pady=10)
-
-    def malzeme_sil_onay(self, mid):
-        OzelOnayKutusu(
-            self.winfo_toplevel(), 
-            metinler[self.app.aktif_dil]["onay_baslik"], 
-            metinler[self.app.aktif_dil]["emin_misin_malzeme"], 
-            lambda: self.malzeme_sil_islemi(mid)
-        )
-
-    def malzeme_sil_islemi(self, mid):
-        m = self.db.malzeme_getir_id(mid)
-        dil = self.app.aktif_dil
-        if m:
-            self.db.malzeme_sil(mid)
-            sl = stok_metni_olustur(m.miktar, m.birim, m.ikinci_miktar, m.ikinci_birim, m.ucuncu_miktar, m.ucuncu_birim, m.dorduncu_miktar, m.dorduncu_birim, m.besinci_miktar, m.besinci_birim, dil)
-            tx = f"{metinler[dil]['log_silindi']} ({metinler[dil]['log_stok']}: {sl})"
-            lid = self.db.gecmis_ekle(mid, m.isim, tx, self.app.kullanici_adi)
-            
-            self.app.islem_gecmisi.append(UndoIslemi(tip="silme", malzeme_id=mid, malzeme_isim=m.isim, log_id=lid, eski_malzeme=m))
-            self.app.gui_guncelle()
+    listeyi_yenile()
+    return ft.Column([
+        ft.Row([ft.Text(f"📦 {L['envanter']}", size=30, weight="bold", color=ayarlar.TEMA_RENKLER["metin_ana"]), ft.Container(expand=True), ft.ElevatedButton(L["excel_aktar"], bgcolor=ayarlar.TEMA_RENKLER["basari_yesil"], color="#FFFFFF", on_click=excel_indir_fiziksel)]),
+        ft.Container(height=10), arama_kutusu, ft.Divider(color=ayarlar.TEMA_RENKLER["kart"], height=20), ft.Row([ft.Container(expand=True), sonuc_yok_alani, ft.Container(expand=True)]), liste_alani
+    ], expand=True)

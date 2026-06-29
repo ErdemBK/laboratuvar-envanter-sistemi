@@ -1,41 +1,49 @@
-import customtkinter as ctk
-from ayarlar import font_tipi, renkler
+# ui_bilesenleri.py
+import flet as ft
+import ayarlar
+import tkinter as tk
+from tkinter import filedialog
+import os
+import subprocess
 
-class FontManager:
-    @staticmethod
-    def get_font(size, weight="normal", slant="roman"):
-        return ctk.CTkFont(family=font_tipi, size=size, weight=weight, slant=slant)
+def goster_toast(page: ft.Page, mesaj: str, basari: bool = True):
+    renk = ayarlar.TEMA_RENKLER["basari_yesil"] if basari else ayarlar.TEMA_RENKLER["tehlike_kirmizi"]
+    ikon = "✅" if basari else "❌"
+    snack = ft.SnackBar(content=ft.Row([ft.Text(ikon, size=16), ft.Text(mesaj, color="#FFFFFF", weight="bold")]), bgcolor=renk, duration=2000, behavior="floating", width=400)
+    page.overlay.append(snack); snack.open = True; page.update()
 
-def OzelBilgiKutusu(master, baslik, mesaj, renk=renkler["basari"]):
-    p = ctk.CTkToplevel(master)
-    p.title(baslik)
-    p.geometry("300x150")
-    p.attributes("-topmost", True)
-    p.grab_set()
-    p.configure(fg_color=renkler["arkaplan"])
-    
-    ctk.CTkLabel(p, text=baslik, font=FontManager.get_font(16, "bold"), text_color=renk).pack(pady=(20, 10))
-    ctk.CTkLabel(p, text=mesaj, font=FontManager.get_font(13), text_color=renkler["yazi_ana"], wraplength=260).pack(pady=5)
-    ctk.CTkButton(p, text="Tamam", command=p.destroy, fg_color=renk).pack(pady=10)
+def dialog_ac(page: ft.Page, dlg: ft.AlertDialog):
+    page.overlay.append(dlg); dlg.open = True; page.update()
 
-def OzelOnayKutusu(master, baslik, mesaj, evet_komut):
-    p = ctk.CTkToplevel(master)
-    p.title(baslik)
-    p.geometry("350x180")
-    p.attributes("-topmost", True)
-    p.grab_set()
-    p.configure(fg_color=renkler["arkaplan"])
-    
-    ctk.CTkLabel(p, text=baslik, font=FontManager.get_font(16, "bold"), text_color=renkler["yazi_ana"]).pack(pady=(20, 10))
-    ctk.CTkLabel(p, text=mesaj, font=FontManager.get_font(13), text_color=renkler["yazi_ikincil"], wraplength=300).pack(pady=5)
-    
-    f = ctk.CTkFrame(p, fg_color="transparent")
-    f.pack(pady=10)
-    
-    def on_evet():
-        p.destroy()     # Önce onay kutusunu yok et
-        master.update() # Ekranı hemen tazele
-        evet_komut()    # SONRA dosya seçme işlemini başlat (Böylece takılıp kalmayacak)
-        
-    ctk.CTkButton(f, text="Evet", fg_color=renkler["basari"], width=100, command=on_evet).pack(side="left", padx=10)
-    ctk.CTkButton(f, text="Hayır", fg_color=renkler["tehlike"], width=100, command=p.destroy).pack(side="left", padx=10)
+def dialog_kapat(page: ft.Page, dlg: ft.AlertDialog):
+    dlg.open = False; page.update()
+
+def dosya_kaydet_dialog(baslik, varsayilan_isim, uzanti):
+    try:
+        root = tk.Tk(); root.withdraw(); root.attributes('-topmost', True)
+        yol = filedialog.asksaveasfilename(title=baslik, initialfile=varsayilan_isim, defaultextension=uzanti, filetypes=[("Dosya", f"*{uzanti}")])
+        root.destroy()
+        return yol
+    except: return None
+
+def dosya_sec_dialog(baslik, uzanti):
+    try:
+        root = tk.Tk(); root.withdraw(); root.attributes('-topmost', True)
+        yol = filedialog.askopenfilename(title=baslik, filetypes=[("Dosya", f"*{uzanti}")])
+        root.destroy()
+        return yol
+    except: return None
+
+def panoya_kopyala(metin):
+    try:
+        # Windows için CMD üzerinden %100 çökmeyen native kopyalama
+        if os.name == 'nt': 
+            subprocess.run("clip", text=True, input=metin, shell=True)
+            return True
+        else:
+            # Mac/Linux sistemleri için standart yöntem
+            root = tk.Tk(); root.withdraw()
+            root.clipboard_clear(); root.clipboard_append(metin); root.update()
+            root.destroy()
+            return True
+    except: return False
