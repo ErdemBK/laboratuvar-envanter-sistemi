@@ -129,7 +129,7 @@ chmod +x Bulut_Envanter_Sistemi
 
 > [!IMPORTANT]  
 > **Önemli Güvenlik ve Kota Notu:** > 1. PostgreSQL mimarisinin doğası gereği, veritabanı tamamen boş olsa dahi sistem katalogları ve şema dosyaları nedeniyle standart olarak `~7.5 MB` depolama alanı kaplar. Uygulama içerisine ekleyeceğiniz her bir malzeme kaydı sadece birkaç bayt boyutunda yer kapladığından, Neon Free Tier tarafından sunulan 500 MB'lık ücretsiz kota on binlerce ürünlük bir laboratuvarda dahi güvenle yetecektir.  
-> 2. Güvenliğiniz için bulut veritabanı bağlantı linkinizi (`postgresql://...`) kimseyle paylaşmayınız. Projeyi GitHub'a yüklemeden önce gizli bilgilerin internete sızmasını önlemek adına `.env` ve `yerel_hafiza.json` dosyalarının silindiğinden veya `.gitignore` listesinde yer aldığından emin olunuz.
+> 2. Güvenliğiniz için bulut veritabanı bağlantı linkinizi (`postgresql://...`) kimseyle paylaşmayınız.
 
 ---
 **Geliştirici:** [Erdem Büyükkahraman](https://github.com/ErdemBK)
